@@ -36,3 +36,9 @@ class EC2UnusedConfig:
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_unused.csv"
     CSV_HEADERS = ["Instance ID", "Name", "Type", "Lifecycle", "Status", "EC2 Hourly Cost ($)", "Volumes Attached", "Volume Size (GB)", "EIPs Attached"]
 
+# -------------------------------------------
+# EIP Unused
+# -------------------------------------------
+class EIPUnusedConfig:
+    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "eip_unused.csv"
+    CSV_HEADERS = ["Public IP", "Allocation ID"]
