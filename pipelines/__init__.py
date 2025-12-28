@@ -1,1 +1,2 @@
-from lib.ebs_unused import UnusedEBSReporter
+from pipelines.ec2_idle import EC2IdlePipeline
+from pipelines.ebs_unused import EBSUnusedPipeline

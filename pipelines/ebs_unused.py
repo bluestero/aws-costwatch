@@ -1,15 +1,15 @@
 import utils
-import settings
+from settings import EBSUnusedConfig
 
 
-class UnusedEBSReporter:
+class EBSUnusedPipeline:
     EBS_COST_PER_GB = 0.08
 
     def __init__(self):
         self.total_cost = 0
         session = utils.create_boto3_session()
         self.ec2 = session.client("ec2")
-        utils.write_to_csv(settings.EBS_OUTPUT_CSV, settings.EBS_CSV_HEADERS, mode="w")
+        utils.write_to_csv(EBSUnusedConfig.OUTPUT_CSV, EBSUnusedConfig.CSV_HEADERS, mode="w")
 
 
     def _fetch_unused_volumes(self):
@@ -29,18 +29,15 @@ class UnusedEBSReporter:
         self.total_cost += monthly_cost
 
         row = [vol_id, vtype, size, create_time, monthly_cost]
-        utils.write_to_csv(settings.EBS_OUTPUT_CSV, row, mode="a")
+        utils.write_to_csv(EBSUnusedConfig.OUTPUT_CSV, row, mode="a")
 
 
+    # ----------------------
+    # Main run function
+    # ----------------------
     def run(self):
         volumes = self._fetch_unused_volumes()
         for volume in volumes:
             self._process_volume(volume)        
         print(f"Total monthly cost of unused EBS volumes: ${self.total_cost:.2f}")
 
-# -------------------------------------------
-# Run the reporter
-# -------------------------------------------
-if __name__ == "__main__":
-    reporter = UnusedEBSReporter()
-    reporter.run()
