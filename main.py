@@ -1,4 +1,4 @@
-from lib import UnusedEBSReporter
+from pipelines import UnusedEBSReporter
 from datetime import datetime
 
 pipelines = [
