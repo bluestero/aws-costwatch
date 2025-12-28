@@ -1,7 +1,6 @@
-import json
+import pandas as pd
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 
 # ----------------------
 # Custom Imports
@@ -10,8 +9,6 @@ import utils
 from settings import EC2IdleConfig
 
 class EC2IdlePipeline:
-    CPU_IDLE_THRESHOLD_PERCENTAGE = 2.0
-    NET_IDLE_THRESHOLD_MB = 5 * 1024 * 1024
 
     def __init__(self):
 
@@ -37,7 +34,7 @@ class EC2IdlePipeline:
                         "InstanceId": inst["InstanceId"],
                         "Name": next((t["Value"] for t in inst.get("Tags", []) if t["Key"] == "Name"), ""),
                         "Type": inst["InstanceType"],
-                        "Lifecycle": inst.get("InstanceLifecycle", "on-demand"),
+                        "Lifecycle": inst.get("InstanceLifecycle", ""),
                         "State": inst["State"]["Name"].upper(),
                         "LaunchTime": inst["LaunchTime"].strftime("%Y-%m-%d %H:%M:%S")
                     })
@@ -70,9 +67,9 @@ class EC2IdlePipeline:
             max_cpu = self._get_max_metric(instance["InstanceId"], "CPUUtilization", "Percent")
             max_net_in = self._get_max_metric(instance["InstanceId"], "NetworkIn", "Bytes")
             max_net_out = self._get_max_metric(instance["InstanceId"], "NetworkOut", "Bytes")
-            status = "IDLE" if (max_cpu < self.CPU_IDLE_THRESHOLD_PERCENTAGE and
-                                max_net_in < self.NET_IDLE_THRESHOLD_MB and
-                                max_net_out < self.NET_IDLE_THRESHOLD_MB) else "ACTIVE"
+            status = "IDLE" if (max_cpu < EC2IdleConfig.CPU_IDLE_THRESHOLD_PERCENTAGE and
+                                max_net_in < EC2IdleConfig.NET_IDLE_THRESHOLD_MB and
+                                max_net_out < EC2IdleConfig.NET_IDLE_THRESHOLD_MB) else "ACTIVE"
         else:
             status = state
 
@@ -92,18 +89,24 @@ class EC2IdlePipeline:
         utils.write_to_csv(EC2IdleConfig.OUTPUT_CSV, row, mode="a")
         return row
 
+
+    def _sort_csv(self):
+        df = pd.read_csv(EC2IdleConfig.OUTPUT_CSV, encoding = "utf-8")
+        df.sort_values(EC2IdleConfig.SORT_BY_COLUMN).to_csv(EC2IdleConfig.OUTPUT_CSV, index = False)
+
+
     # ----------------------
     # Main run function
     # ----------------------
     def run(self):
-        print("Fetching EC2 instances...")
+        print("Fetching EC2 instances.")
         instances = self._fetch_all_instances()
-        print(f"Found {len(instances)} instances")
+        print(f"Processing {len(instances)} instances.")
 
-        print("Processing instances in parallel...")
         with ThreadPoolExecutor(max_workers=EC2IdleConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_instance, inst) for inst in instances]
-            for f in as_completed(futures):
-                f.result()
+            for future in as_completed(futures):
+                future.result()
 
+        self._sort_csv()
         print(f"Done → {EC2IdleConfig.OUTPUT_CSV}")

@@ -1,12 +1,14 @@
 from pipelines import (
+    EBSUnusedPipeline,
     EC2IdlePipeline,
-    EBSUnusedPipeline
+    EC2UnusedPipeline,
 )
 from datetime import datetime
 
 pipelines = [
+    EBSUnusedPipeline,
     EC2IdlePipeline,
-    # EBSUnusedPipeline,
+    EC2UnusedPipeline
 ]
 
 for pipeline_cls in pipelines:

@@ -1,2 +1,3 @@
 from pipelines.ec2_idle import EC2IdlePipeline
 from pipelines.ebs_unused import EBSUnusedPipeline
+from pipelines.ec2_unused import EC2UnusedPipeline

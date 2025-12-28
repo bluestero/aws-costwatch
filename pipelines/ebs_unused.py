@@ -1,43 +1,60 @@
+import pandas as pd
+
+# ----------------------
+# Custom Imports
+# ----------------------
 import utils
 from settings import EBSUnusedConfig
 
 
 class EBSUnusedPipeline:
-    EBS_COST_PER_GB = 0.08
-
     def __init__(self):
-        self.total_cost = 0
-        session = utils.create_boto3_session()
-        self.ec2 = session.client("ec2")
+
+        #-Clients-#
+        self.session = utils.create_boto3_session()
+        self.ec2 = self.session.client("ec2")
+
+        # Initialize CSV with headers
         utils.write_to_csv(EBSUnusedConfig.OUTPUT_CSV, EBSUnusedConfig.CSV_HEADERS, mode="w")
 
 
     def _fetch_unused_volumes(self):
-        filter = [{"Name": "status", "Values": ["available"]}]
-        response = self.ec2.describe_volumes(Filters=filter)
+        response = self.ec2.describe_volumes(
+            Filters=[{"Name": "status", "Values": ["available"]}]
+        )
         return response.get("Volumes", [])
 
 
     def _process_volume(self, volume: dict):
+        volume_id = volume["VolumeId"]
+        size_gb = volume["Size"]
+        volume_type = volume["VolumeType"]
+        create_time = (
+            volume["CreateTime"].strftime("%Y-%m-%d %H:%M:%S")
+            if hasattr(volume["CreateTime"], "strftime")
+            else volume["CreateTime"]
+        )
 
-        size = volume["Size"]
-        vol_id = volume["VolumeId"]
-        vtype = volume["VolumeType"]
-        create_time = volume["CreateTime"].strftime("%Y-%m-%d %H:%M:%S") if hasattr(volume["CreateTime"], "strftime") else volume["CreateTime"]
+        row = [volume_id, size_gb, volume_type, create_time]
 
-        monthly_cost = size * self.EBS_COST_PER_GB
-        self.total_cost += monthly_cost
-
-        row = [vol_id, vtype, size, create_time, monthly_cost]
         utils.write_to_csv(EBSUnusedConfig.OUTPUT_CSV, row, mode="a")
+        return row
+
+
+    def _sort_csv(self):
+        df = pd.read_csv(EBSUnusedConfig.OUTPUT_CSV, encoding = "utf-8")
+        df.sort_values(EBSUnusedConfig.SORT_BY_COLUMN).to_csv(EBSUnusedConfig.OUTPUT_CSV, index = False)
 
 
     # ----------------------
     # Main run function
     # ----------------------
     def run(self):
+        print("Fetching unused EBS volumes...")
         volumes = self._fetch_unused_volumes()
-        for volume in volumes:
-            self._process_volume(volume)        
-        print(f"Total monthly cost of unused EBS volumes: ${self.total_cost:.2f}")
+        print(f"Found {len(volumes)} unused volumes")
 
+        for volume in volumes:
+            self._process_volume(volume)
+
+        print(f"Unused EBS report written to {EBSUnusedConfig.OUTPUT_CSV}")
