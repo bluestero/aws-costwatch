@@ -3,6 +3,8 @@ from pipelines import (
     EC2IdlePipeline,
     EC2UnusedPipeline,
     EIPUnusedPipeline,
+    LogsNeverExpirePipeline,
+    LogsHighIngestionPipeline
 )
 from datetime import datetime
 
@@ -11,6 +13,8 @@ pipelines = [
     EC2IdlePipeline,
     EC2UnusedPipeline,
     EIPUnusedPipeline,
+    LogsNeverExpirePipeline,
+    LogsHighIngestionPipeline
 ]
 
 for pipeline_cls in pipelines:

@@ -12,12 +12,12 @@ class EC2IdlePipeline:
 
     def __init__(self):
 
-        #-Clients-#
+        # Clients
         self.session = utils.create_boto3_session()
         self.ec2 = self.session.client("ec2")
         self.cloudwatch = self.session.client("cloudwatch")
 
-        #-Writing headers-#
+        # Writing headers
         utils.write_to_csv(EC2IdleConfig.OUTPUT_CSV, EC2IdleConfig.CSV_HEADERS, mode="w")
 
     # ----------------------
@@ -34,12 +34,11 @@ class EC2IdlePipeline:
                         "InstanceId": inst["InstanceId"],
                         "Name": next((t["Value"] for t in inst.get("Tags", []) if t["Key"] == "Name"), ""),
                         "Type": inst["InstanceType"],
-                        "Lifecycle": inst.get("InstanceLifecycle", ""),
+                        "Lifecycle": inst.get("InstanceLifecycle", "on-demand"),
                         "State": inst["State"]["Name"].upper(),
                         "LaunchTime": inst["LaunchTime"].strftime("%Y-%m-%d %H:%M:%S")
                     })
         return instances
-
 
     def _get_max_metric(self, instance_id, metric_name, unit):
         end_time = datetime.utcnow()
@@ -58,7 +57,6 @@ class EC2IdlePipeline:
         datapoints = resp.get("Datapoints", [])
         return max(dp["Maximum"] for dp in datapoints) if datapoints else 0.0
 
-
     def _process_instance(self, instance):
         state = instance["State"]
         max_cpu = max_net_in = max_net_out = 0.0
@@ -72,6 +70,9 @@ class EC2IdlePipeline:
                                 max_net_out < EC2IdleConfig.NET_IDLE_THRESHOLD_MB) else "ACTIVE"
         else:
             status = state
+
+        if status == "ACTIVE":
+            return False
 
         row = [
             instance["InstanceId"],
@@ -87,26 +88,27 @@ class EC2IdlePipeline:
         ]
 
         utils.write_to_csv(EC2IdleConfig.OUTPUT_CSV, row, mode="a")
-        return row
-
+        return True
 
     def _sort_csv(self):
         df = pd.read_csv(EC2IdleConfig.OUTPUT_CSV, encoding = "utf-8")
         df.sort_values(EC2IdleConfig.SORT_BY_COLUMN).to_csv(EC2IdleConfig.OUTPUT_CSV, index = False)
-
 
     # ----------------------
     # Main run function
     # ----------------------
     def run(self):
         print("Fetching EC2 instances.")
+        count = 0
         instances = self._fetch_all_instances()
         print(f"Processing {len(instances)} instances.")
 
         with ThreadPoolExecutor(max_workers=EC2IdleConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_instance, inst) for inst in instances]
             for future in as_completed(futures):
-                future.result()
+                if future.result():
+                    count += 1
 
         self._sort_csv()
-        print(f"Done → {EC2IdleConfig.OUTPUT_CSV}")
+        print(f"Found {count} inactive EC2 instances.")
+        print(f"Report written to {EC2IdleConfig.OUTPUT_CSV}.")

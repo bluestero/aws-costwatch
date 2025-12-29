@@ -12,21 +12,23 @@ class EC2UnusedPipeline:
 
     def __init__(self):
 
-        #-Clients-#
+        # Clients
         self.session = utils.create_boto3_session()
         self.ec2 = self.session.client("ec2")
         self.pricing = utils.EC2Pricing()
 
-        #-Writing headers-#
+        # Writing headers
         utils.write_to_csv(EC2UnusedConfig.OUTPUT_CSV, EC2UnusedConfig.CSV_HEADERS, mode="w")
 
+    # ----------------------
+    # Private helpers
+    # ----------------------
     def _read_non_active_instances(self):
         instances = []
         with open(EC2IdleConfig.OUTPUT_CSV, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row["Status"] != "ACTIVE":
-                    instances.append(row)
+                instances.append(row)
         return instances
 
     def _process_instance(self, inst):
@@ -65,15 +67,17 @@ class EC2UnusedPipeline:
         ]
 
         utils.write_to_csv(EC2UnusedConfig.OUTPUT_CSV, row, mode="a")
-        return row
 
     def _sort_csv(self):
         df = pd.read_csv(EC2UnusedConfig.OUTPUT_CSV, encoding = "utf-8")
         df = df.sort_values(EC2UnusedConfig.SORT_BY_COLUMN, ascending = False)
         df.to_csv(EC2UnusedConfig.OUTPUT_CSV, index = False)
 
+    # ----------------------
+    # Main run function
+    # ----------------------
     def run(self):
-        print("Reading non-active instances.")
+        print("Reading inactive EC2 instances.")
         instances = self._read_non_active_instances()
         print(f"Processing {len(instances)} instances.")
 
@@ -83,4 +87,4 @@ class EC2UnusedPipeline:
                 future.result()
 
         self._sort_csv()
-        print(f"Cost report written to {EC2UnusedConfig.OUTPUT_CSV}")
+        print(f"Report written to {EC2UnusedConfig.OUTPUT_CSV}")

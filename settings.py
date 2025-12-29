@@ -31,7 +31,7 @@ class EC2IdleConfig:
 # EC2 Unused
 # -------------------------------------------
 class EC2UnusedConfig:
-    MAX_WORKERS = 8
+    MAX_WORKERS = 12
     SORT_BY_COLUMN = "EC2 Hourly Cost ($)"
     INPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_idle.csv"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_unused.csv"
@@ -43,3 +43,22 @@ class EC2UnusedConfig:
 class EIPUnusedConfig:
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "eip_unused.csv"
     CSV_HEADERS = ["Public IP", "Allocation ID"]
+
+# -------------------------------------------
+# Logs Never Expire
+# -------------------------------------------
+class LogsNeverExpireConfig:
+    MAX_WORKERS = 6
+    SORT_BY_COLUMN = "Stored (GB)"
+    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "logs_never_expire.csv"
+    CSV_HEADERS = ["Log Group", "Stored (GB)", "Monthly Ingested (GB)"]
+
+# -------------------------------------------
+# Logs High Ingestion
+# -------------------------------------------
+class LogsHighIngestionConfig:
+    MAX_WORKERS = 6
+    INGESTION_THRESHOLD_GB = 1000
+    SORT_BY_COLUMN = "Monthly Ingested (GB)"
+    CSV_HEADERS = [ "Log Group", "Monthly Ingested (GB)"]
+    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "logs_high_ingestion.csv"
