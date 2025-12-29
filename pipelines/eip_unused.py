@@ -19,14 +19,17 @@ class EIPUnusedPipeline:
             mode="w"
         )
 
+
     def _fetch_all_eips(self):
         response = self.ec2.describe_addresses()
         return response.get("Addresses", [])
+
 
     def _is_attached_to_running_instance(self, instance_id: str) -> bool:
         response = self.ec2.describe_instances(InstanceIds=[instance_id])
         instance = response["Reservations"][0]["Instances"][0]
         return instance["State"]["Name"] == "running"
+
 
     def _process_eip(self, eip: dict):
         instance_id = eip.get("InstanceId")
@@ -46,6 +49,10 @@ class EIPUnusedPipeline:
         utils.write_to_csv(EIPUnusedConfig.OUTPUT_CSV, row, mode="a")
         return row
 
+
+    # ----------------------
+    # Main run function
+    # ----------------------
     def run(self):
         print("Fetching Elastic IPs...")
         eips = self._fetch_all_eips()

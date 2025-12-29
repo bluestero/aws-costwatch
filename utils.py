@@ -4,19 +4,22 @@ import boto3
 import configparser
 from pathlib import Path
 
+# ----------------------
+# Custom Imports
+# ----------------------
+from settings import CommonConfig
 
 # -------------------------------------------
 # AWS Boto3 Session
 # -------------------------------------------
 def create_boto3_session(
-    credentials_file: Path = Path("./credentials"),
-    region_name: str = "us-east-1",
+    credentials_file: Path = Path("./credentials")
 ) -> boto3.Session:
     """
     Create a boto3 session using a local credentials file if it exists,
     otherwise fall back to default AWS credential resolution.
     """
-    session_kwargs = {"region_name": region_name}
+    session_kwargs = {"region_name": CommonConfig.AWS_REGION}
 
     if credentials_file.exists():
         config = configparser.ConfigParser()

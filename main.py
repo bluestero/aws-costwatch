@@ -16,7 +16,7 @@ pipelines = [
 for pipeline_cls in pipelines:
     pipeline_name = pipeline_cls.__name__
     print(f"[{datetime.now().isoformat()}] Starting pipeline: {pipeline_name}.")
-    
+
     try:
         pipeline_obj = pipeline_cls()
         pipeline_obj.run()

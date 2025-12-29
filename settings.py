@@ -4,6 +4,7 @@ from pathlib import Path
 # Common Config
 # -------------------------------------------
 class CommonConfig:
+    AWS_REGION = "us-east-1"
     OUTPUT_CSV_DIR = Path (__file__).parent / "output_files"
 
 # -------------------------------------------
