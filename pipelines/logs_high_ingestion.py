@@ -25,7 +25,7 @@ class LogsHighIngestionPipeline:
         self.start_time = self.end_time - timedelta(days=self.PERIOD_DAYS)
 
         # Writing headers
-        utils.write_to_csv( LogsHighIngestionConfig.OUTPUT_CSV, LogsHighIngestionConfig.CSV_HEADERS, mode="w")
+        utils.write_to_csv(LogsHighIngestionConfig.OUTPUT_CSV, LogsHighIngestionConfig.CSV_HEADERS, mode="w")
 
     # ----------------------
     # Private helpers
@@ -57,11 +57,7 @@ class LogsHighIngestionPipeline:
         if monthly_ingested_gb < LogsHighIngestionConfig.INGESTION_THRESHOLD_GB:
             return False
 
-        row = [
-            log_group,
-            round(monthly_ingested_gb, 2),
-        ]
-
+        row = [log_group, round(monthly_ingested_gb, 2)]
         utils.write_to_csv(LogsHighIngestionConfig.OUTPUT_CSV, row, mode="a")
         return True
 
@@ -70,23 +66,15 @@ class LogsHighIngestionPipeline:
     # ----------------------
     def run(self):
         print("Scanning CloudWatch Log Groups for high ingestion.")
-
+        count = 0
         log_groups = list(self._fetch_log_groups())
         print(f"Found {len(log_groups)} log groups")
 
-        matcountched = 0
         with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
-            futures = [
-                executor.submit(self._process_log_group, lg)
-                for lg in log_groups
-            ]
-
+            futures = [executor.submit(self._process_log_group, lg) for lg in log_groups]
             for future in as_completed(futures):
                 if future.result():
                     count += 1
 
-        print(
-            f"Found {count} log groups with ingestion > "
-            f"{LogsHighIngestionConfig.INGESTION_THRESHOLD_GB} GB/month"
-        )
+        print(f"Found {count} log groups with high ingestion.")
         print(f"Report written to {LogsHighIngestionConfig.OUTPUT_CSV}")

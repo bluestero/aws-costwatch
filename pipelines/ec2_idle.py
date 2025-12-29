@@ -42,7 +42,7 @@ class EC2IdlePipeline:
 
     def _get_max_metric(self, instance_id, metric_name, unit):
         end_time = datetime.utcnow()
-        start_time = end_time - timedelta(days = EC2IdleConfig.NUMBER_OF_DAYS)
+        start_time = end_time - timedelta(days = EC2IdleConfig.LOOKBACK_DAYS)
 
         resp = self.cloudwatch.get_metric_statistics(
             Namespace="AWS/EC2",
@@ -50,7 +50,7 @@ class EC2IdlePipeline:
             Dimensions=[{"Name": "InstanceId", "Value": instance_id}],
             StartTime=start_time,
             EndTime=end_time,
-            Period=EC2IdleConfig.NUMBER_OF_DAYS * 24 * 3600,
+            Period=EC2IdleConfig.LOOKBACK_DAYS * 24 * 3600,
             Statistics=["Maximum"],
             Unit=unit
         )

@@ -24,7 +24,7 @@ class LogsNeverExpirePipeline:
         self.start_time = self.end_time - timedelta(days=self.PERIOD_DAYS)
 
         # Writing headers
-        utils.write_to_csv( LogsNeverExpireConfig.OUTPUT_CSV, LogsNeverExpireConfig.CSV_HEADERS, mode="w")
+        utils.write_to_csv(LogsNeverExpireConfig.OUTPUT_CSV, LogsNeverExpireConfig.CSV_HEADERS, mode="w")
 
     # ----------------------
     # Private helpers

@@ -20,7 +20,7 @@ class EBSUnusedConfig:
 # -------------------------------------------
 class EC2IdleConfig:
     MAX_WORKERS = 8
-    NUMBER_OF_DAYS = 14
+    LOOKBACK_DAYS = 14
     SORT_BY_COLUMN = "Status"
     CPU_IDLE_THRESHOLD_PERCENTAGE = 5.0
     NET_IDLE_THRESHOLD_MB = 5 * 1024 * 1024
@@ -60,5 +60,16 @@ class LogsHighIngestionConfig:
     MAX_WORKERS = 6
     INGESTION_THRESHOLD_GB = 1000
     SORT_BY_COLUMN = "Monthly Ingested (GB)"
-    CSV_HEADERS = [ "Log Group", "Monthly Ingested (GB)"]
+    CSV_HEADERS = ["Log Group", "Monthly Ingested (GB)"]
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "logs_high_ingestion.csv"
+
+# -------------------------------------------
+# Lambda Excess Memory
+# -------------------------------------------
+class LambdaExcessMemoryConfig:
+    MAX_WORKERS = 12
+    INVOCATION_LOOKBACK_DAYS = 30
+    SORT_BY_COLUMN = "Invocations"
+    LOGS_INSIGHTS_LOOKBACK_DAYS = 7
+    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "lambda_excess_memory.csv"
+    CSV_HEADERS = ["Lambda Name", "Assigned Memory (MB)", "Invocations", "Avg Bill Duration (seconds)", "Avg Memory Used", "Max Memory Used"]

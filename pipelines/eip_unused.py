@@ -13,7 +13,7 @@ class EIPUnusedPipeline:
         self.ec2 = self.session.client("ec2")
 
         # Writing headers
-        utils.write_to_csv( EIPUnusedConfig.OUTPUT_CSV, EIPUnusedConfig.CSV_HEADERS, mode="w")
+        utils.write_to_csv(EIPUnusedConfig.OUTPUT_CSV, EIPUnusedConfig.CSV_HEADERS, mode="w")
 
     # ----------------------
     # Private helpers

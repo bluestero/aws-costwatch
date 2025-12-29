@@ -4,17 +4,19 @@ from pipelines import (
     EC2UnusedPipeline,
     EIPUnusedPipeline,
     LogsNeverExpirePipeline,
-    LogsHighIngestionPipeline
+    LogsHighIngestionPipeline,
+    LambdaExcessMemoryPipeline
 )
 from datetime import datetime
 
 pipelines = [
-    EBSUnusedPipeline,
-    EC2IdlePipeline,
-    EC2UnusedPipeline,
-    EIPUnusedPipeline,
-    LogsNeverExpirePipeline,
-    LogsHighIngestionPipeline
+    # EBSUnusedPipeline,
+    # EC2IdlePipeline,
+    # EC2UnusedPipeline,
+    # EIPUnusedPipeline,
+    # LogsNeverExpirePipeline,
+    # LogsHighIngestionPipeline,
+    LambdaExcessMemoryPipeline,
 ]
 
 for pipeline_cls in pipelines:
