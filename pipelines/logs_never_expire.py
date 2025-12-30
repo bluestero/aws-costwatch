@@ -15,9 +15,9 @@ class LogsNeverExpirePipeline:
     def __init__(self):
 
         # Clients
-        self.session = utils.create_boto3_session()
-        self.logs = self.session.client("logs")
-        self.cw = self.session.client("cloudwatch")
+        session = utils.create_boto3_session()
+        self.logs = session.client("logs")
+        self.cw = session.client("cloudwatch")
 
         # Time range
         self.end_time = datetime.now(timezone.utc)

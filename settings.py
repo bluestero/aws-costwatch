@@ -11,6 +11,8 @@ class CommonConfig:
 # EBS Unused
 # -------------------------------------------
 class EBSUnusedConfig:
+    MAX_WORKERS = 8
+    LOOKBACK_DAYS = 14
     SORT_BY_COLUMN = "Size (GB)"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ebs_unused.csv"
     CSV_HEADERS = ["Volume ID", "Size (GB)", "Volume Type", "Created Time"]
@@ -31,7 +33,7 @@ class EC2IdleConfig:
 # EC2 Unused
 # -------------------------------------------
 class EC2UnusedConfig:
-    MAX_WORKERS = 12
+    MAX_WORKERS =  8
     SORT_BY_COLUMN = "EC2 Hourly Cost ($)"
     INPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_idle.csv"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_unused.csv"
@@ -67,9 +69,29 @@ class LogsHighIngestionConfig:
 # Lambda Excess Memory
 # -------------------------------------------
 class LambdaExcessMemoryConfig:
-    MAX_WORKERS = 12
+    MAX_WORKERS =  8
     INVOCATION_LOOKBACK_DAYS = 30
     SORT_BY_COLUMN = "Invocations"
     LOGS_INSIGHTS_LOOKBACK_DAYS = 7
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "lambda_excess_memory.csv"
     CSV_HEADERS = ["Lambda Name", "Assigned Memory (MB)", "Invocations", "Avg Bill Duration (seconds)", "Avg Memory Used", "Max Memory Used"]
+
+
+# -------------------------------------------
+# Snapshot Old
+# -------------------------------------------
+class SnapshotOldConfig:
+    MAX_WORKERS =  8
+    SORT_BY_COLUMN = "Size (GB)"
+    SNAPSHOT_CUTOFF_DATE = "2024-05-01"
+    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "snapshot_old.csv"
+    CSV_HEADERS = ["Snapshot ID", "Volume ID", "Volume Name", "Volume Type", "Attached Instance ID", "Attached Instance Name", "Size (GB)", "Snapshot Date"]
+
+# -------------------------------------------
+# NAT Gateway Unused
+# -------------------------------------------
+class NATUnusedConfig:
+    MAX_WORKERS = 8
+    LOOKBACK_DAYS = 30
+    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "nat_unused.csv"
+    CSV_HEADERS = ["NAT Gateway ID", "Vpc ID", "State", "Subnet ID", "Created Time"]

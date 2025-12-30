@@ -16,9 +16,9 @@ class LogsHighIngestionPipeline:
     def __init__(self):
 
         # Clients
-        self.session = utils.create_boto3_session()
-        self.logs = self.session.client("logs")
-        self.cw = self.session.client("cloudwatch")
+        session = utils.create_boto3_session()
+        self.logs = session.client("logs")
+        self.cw = session.client("cloudwatch")
 
         # Time range
         self.end_time = datetime.now(timezone.utc)
@@ -68,7 +68,7 @@ class LogsHighIngestionPipeline:
         print("Scanning CloudWatch Log Groups for high ingestion.")
         count = 0
         log_groups = list(self._fetch_log_groups())
-        print(f"Found {len(log_groups)} log groups")
+        print(f"Processing {len(log_groups)} log groups.")
 
         with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_log_group, lg) for lg in log_groups]

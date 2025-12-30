@@ -13,9 +13,9 @@ class EC2IdlePipeline:
     def __init__(self):
 
         # Clients
-        self.session = utils.create_boto3_session()
-        self.ec2 = self.session.client("ec2")
-        self.cloudwatch = self.session.client("cloudwatch")
+        session = utils.create_boto3_session()
+        self.ec2 = session.client("ec2")
+        self.cloudwatch = session.client("cloudwatch")
 
         # Writing headers
         utils.write_to_csv(EC2IdleConfig.OUTPUT_CSV, EC2IdleConfig.CSV_HEADERS, mode="w")

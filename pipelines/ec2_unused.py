@@ -13,8 +13,8 @@ class EC2UnusedPipeline:
     def __init__(self):
 
         # Clients
-        self.session = utils.create_boto3_session()
-        self.ec2 = self.session.client("ec2")
+        session = utils.create_boto3_session()
+        self.ec2 = session.client("ec2")
         self.pricing = utils.EC2Pricing()
 
         # Writing headers

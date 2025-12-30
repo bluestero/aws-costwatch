@@ -2,6 +2,8 @@ from pipelines.ec2_idle import EC2IdlePipeline
 from pipelines.ebs_unused import EBSUnusedPipeline
 from pipelines.ec2_unused import EC2UnusedPipeline
 from pipelines.eip_unused import EIPUnusedPipeline
+from pipelines.nat_unused import NATUnusedPipeline
+from pipelines.snapshot_old import SnapshotOldPipeline
 from pipelines.logs_never_expire import LogsNeverExpirePipeline
 from pipelines.logs_high_ingestion import LogsHighIngestionPipeline
 from pipelines.lambda_excess_memory import LambdaExcessMemoryPipeline

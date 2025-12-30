@@ -15,10 +15,10 @@ class LambdaExcessMemoryPipeline:
     def __init__(self):
 
         # Clients
-        self.session = utils.create_boto3_session()
-        self.lambda_client = self.session.client("lambda")
-        self.cw = self.session.client("cloudwatch")
-        self.logs = self.session.client("logs")
+        session = utils.create_boto3_session()
+        self.lambda_client = session.client("lambda")
+        self.cw = session.client("cloudwatch")
+        self.logs = session.client("logs")
 
         # Time range
         self.end_time = datetime.now(timezone.utc)
@@ -52,9 +52,7 @@ class LambdaExcessMemoryPipeline:
         )
         return int(sum(dp["Sum"] for dp in resp.get("Datapoints", [])))
 
-    def _get_logs_metrics(self, function_name: str) -> dict:
-        log_group = f"/aws/lambda/{function_name}"
-
+    def _get_logs_metrics(self, log_group: str) -> dict:
         query = """
         filter @message like /REPORT RequestId/
         | parse @message /Billed Duration: (?<billed>[0-9.]+) ms/
@@ -93,7 +91,9 @@ class LambdaExcessMemoryPipeline:
         memory = fn["memory"]
 
         invocations = self._get_invocations(name)
-        logs_metrics = self._get_logs_metrics(name)
+        logs_metrics = self._get_logs_metrics(f"/aws/lambda/{name}")
+        if not logs_metrics:
+            logs_metrics = self._get_logs_metrics(f"/lambda/{name}")
 
         avg_billed_seconds = round(logs_metrics.get("avg_billed", 0) / 1000, 2)
         avg_memory = int(logs_metrics.get("avg_memory", 0))
@@ -130,7 +130,7 @@ class LambdaExcessMemoryPipeline:
         print("Fetching Lambda functions.")
         count = 0
         lambdas = list(self._fetch_lambdas())
-        print(f"Found {len(lambdas)} Lambda functions")
+        print(f"Processing {len(lambdas)} Lambda functions.")
 
         with ThreadPoolExecutor(max_workers=LambdaExcessMemoryConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._safe_process_lambda, fn) for fn in lambdas]

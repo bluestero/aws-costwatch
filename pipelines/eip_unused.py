@@ -9,8 +9,8 @@ class EIPUnusedPipeline:
     def __init__(self):
 
         # Clients
-        self.session = utils.create_boto3_session()
-        self.ec2 = self.session.client("ec2")
+        session = utils.create_boto3_session()
+        self.ec2 = session.client("ec2")
 
         # Writing headers
         utils.write_to_csv(EIPUnusedConfig.OUTPUT_CSV, EIPUnusedConfig.CSV_HEADERS, mode="w")
@@ -51,7 +51,7 @@ class EIPUnusedPipeline:
     def run(self):
         print("Fetching Elastic IPs.")
         eips = self._fetch_all_eips()
-        print(f"Found {len(eips)} Elastic IPs.")
+        print(f"Processing {len(eips)} Elastic IPs.")
 
         count = 0
         for eip in eips:

@@ -61,11 +61,11 @@ class EC2Pricing:
     }
 
     def __init__(self, boto3_session=None):
-        self.session = boto3_session or boto3.Session()
+        session = boto3_session or boto3.Session()
 
     def get_on_demand_price(self, instance_type: str, region: str = "us-east-1", os: str = "Linux") -> float:
         location = self.REGION_NAME_MAP.get(region, "US East (N. Virginia)")
-        pricing_client = self.session.client("pricing", region_name="us-east-1")
+        pricing_client = session.client("pricing", region_name="us-east-1")
 
         response = pricing_client.get_products(
             ServiceCode="AmazonEC2",
@@ -91,7 +91,7 @@ class EC2Pricing:
             return f"Error parsing  price: {e}."
 
     def get_spot_price(self, instance_type: str, region: str = "us-east-1", os: str = "Linux") -> float:
-        ec2_client = self.session.client("ec2", region_name=region)
+        ec2_client = session.client("ec2", region_name=region)
         try:
             spot_history = ec2_client.describe_spot_price_history(
                 InstanceTypes=[instance_type],
