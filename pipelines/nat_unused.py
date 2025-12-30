@@ -1,4 +1,3 @@
-import pandas as pd
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -69,11 +68,6 @@ class NATUnusedPipeline:
         utils.write_to_csv(NATUnusedConfig.OUTPUT_CSV, row, mode="a")
         return True
 
-    def _sort_csv(self):
-        df = pd.read_csv(NATUnusedConfig.OUTPUT_CSV, encoding="utf-8")
-        df.sort_values("Created Time", inplace=True)
-        df.to_csv(NATUnusedConfig.OUTPUT_CSV, index=False)
-
     # ----------------------
     # Main run function
     # ----------------------
@@ -89,6 +83,5 @@ class NATUnusedPipeline:
                 if future.result():
                     count += 1
 
-        self._sort_csv()
         print(f"Found {count} idle NAT Gateways.")
         print(f"Report written to {NATUnusedConfig.OUTPUT_CSV}.")

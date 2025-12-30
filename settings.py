@@ -93,5 +93,6 @@ class SnapshotOldConfig:
 class NATUnusedConfig:
     MAX_WORKERS = 8
     LOOKBACK_DAYS = 30
+    SORT_BY_COLUMN = "Created Time"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "nat_unused.csv"
     CSV_HEADERS = ["NAT Gateway ID", "Vpc ID", "State", "Subnet ID", "Created Time"]

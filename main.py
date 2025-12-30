@@ -13,14 +13,14 @@ from datetime import datetime
 
 pipelines = [
     NATUnusedPipeline,
-    # EBSUnusedPipeline,
-    # EC2IdlePipeline,
-    # EC2UnusedPipeline,
-    # EIPUnusedPipeline,
-    # LogsNeverExpirePipeline,
-    # LogsHighIngestionPipeline,
-    # LambdaExcessMemoryPipeline,
-    # SnapshotOldPipeline,
+    EBSUnusedPipeline,
+    EC2IdlePipeline,
+    EC2UnusedPipeline,
+    EIPUnusedPipeline,
+    LogsNeverExpirePipeline,
+    LogsHighIngestionPipeline,
+    LambdaExcessMemoryPipeline,
+    SnapshotOldPipeline,
 ]
 
 for pipeline_cls in pipelines:
