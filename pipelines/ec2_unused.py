@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Custom Imports
 # ----------------------
 import utils
+from utils import logger
 from settings import EC2IdleConfig, EC2UnusedConfig
 
 class EC2UnusedPipeline:
@@ -77,9 +78,9 @@ class EC2UnusedPipeline:
     # Main run function
     # ----------------------
     def run(self):
-        print("Reading inactive EC2 instances.")
+        logger.info("Reading inactive EC2 instances.")
         instances = self._read_non_active_instances()
-        print(f"Processing {len(instances)} instances.")
+        logger.info(f"Processing {len(instances)} instances.")
 
         with ThreadPoolExecutor(max_workers=EC2UnusedConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_instance, inst) for inst in instances]
@@ -87,4 +88,4 @@ class EC2UnusedPipeline:
                 future.result()
 
         self._sort_csv()
-        print(f"Report written to {EC2UnusedConfig.OUTPUT_CSV}")
+        logger.info(f"Report written to {EC2UnusedConfig.OUTPUT_CSV}")

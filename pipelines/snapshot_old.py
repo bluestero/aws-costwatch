@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Custom Imports
 # ----------------------
 import utils
+from utils import logger
 from settings import SnapshotOldConfig
 
 
@@ -86,10 +87,10 @@ class SnapshotOldPipeline:
     # Main run function
     # ----------------------
     def run(self):
-        print("Fetching snapshots.")
+        logger.info("Fetching snapshots.")
         count = 0
         snapshots = self._fetch_snapshots()
-        print(f"Processing {len(snapshots)} snapshots.")
+        logger.info(f"Processing {len(snapshots)} snapshots.")
 
         with ThreadPoolExecutor(max_workers=SnapshotOldConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_snapshot, snapshot) for snapshot in snapshots]
@@ -97,5 +98,5 @@ class SnapshotOldPipeline:
                 if future.result():
                     count += 1
 
-        print(f"Snapshots older than {SnapshotOldConfig.SNAPSHOT_CUTOFF_DATE}: {count}.")
-        print(f"Report written to {SnapshotOldConfig.OUTPUT_CSV}.")
+        logger.info(f"Snapshots older than {SnapshotOldConfig.SNAPSHOT_CUTOFF_DATE}: {count}.")
+        logger.info(f"Report written to {SnapshotOldConfig.OUTPUT_CSV}.")

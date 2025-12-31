@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Custom Imports
 # ----------------------
 import utils
+from utils import logger
 from settings import EBSUnusedConfig
 
 
@@ -128,10 +129,10 @@ class EBSUnusedPipeline:
     # Main run function
     # ----------------------
     def run(self):
-        print("Fetching all EBS volumes.")
+        logger.info("Fetching all EBS volumes.")
         count = 0
         volumes = self._fetch_volumes()
-        print(f"Processing {len(volumes)} EBS volumes.")
+        logger.info(f"Processing {len(volumes)} EBS volumes.")
 
         with ThreadPoolExecutor(max_workers=EBSUnusedConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_volume, volume) for volume in volumes]
@@ -141,7 +142,8 @@ class EBSUnusedPipeline:
 
         self._sort_csv()
         if EBSUnusedConfig.WRITE_TO_GOOGLE_SHEET:
+
             utils.write_df_to_sheet(EBSUnusedConfig.WORKSHEET_NAME, self.df)
 
-        print(f"Found {count} unused EBS volumes.")
-        print(f"Report written to {EBSUnusedConfig.OUTPUT_CSV}.")
+        logger.info(f"Found {count} unused EBS volumes.")
+        logger.info(f"Report written to {EBSUnusedConfig.OUTPUT_CSV}.")

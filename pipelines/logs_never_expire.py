@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Custom Imports
 # ----------------------
 import utils
+from utils import logger
 from settings import LogsNeverExpireConfig
 
 
@@ -73,10 +74,10 @@ class LogsNeverExpirePipeline:
     # Main run function
     # ----------------------
     def run(self):
-        print("Scanning CloudWatch Log Groups (Never Expire).")
+        logger.info("Scanning CloudWatch Log Groups (Never Expire).")
         count = 0
         log_groups = list(self._fetch_log_groups())
-        print(f"Processing {len(log_groups)} Log groups.")
+        logger.info(f"Processing {len(log_groups)} Log groups.")
 
         with ThreadPoolExecutor(max_workers=LogsNeverExpireConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_log_group, log_group) for log_group in log_groups]
@@ -85,5 +86,5 @@ class LogsNeverExpirePipeline:
                     count += 1
 
         self._sort_csv()
-        print(f"Processed {count} log groups with never-expire retention.")
-        print(f"Report written to {LogsNeverExpireConfig.OUTPUT_CSV}.")
+        logger.info(f"Processed {count} log groups with never-expire retention.")
+        logger.info(f"Report written to {LogsNeverExpireConfig.OUTPUT_CSV}.")

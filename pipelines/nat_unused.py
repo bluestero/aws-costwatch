@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Custom Imports
 # ----------------------
 import utils
+from utils import logger
 from settings import NATUnusedConfig
 
 
@@ -72,10 +73,10 @@ class NATUnusedPipeline:
     # Main run function
     # ----------------------
     def run(self):
-        print("Fetching all NAT Gateways.")
+        logger.info("Fetching all NAT Gateways.")
         count = 0
         nat_gateways = self._fetch_nat_gateways()
-        print(f"Processing {len(nat_gateways)} NAT Gateways.")
+        logger.info(f"Processing {len(nat_gateways)} NAT Gateways.")
 
         with ThreadPoolExecutor(max_workers=NATUnusedConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_nat, nat) for nat in nat_gateways]
@@ -83,5 +84,5 @@ class NATUnusedPipeline:
                 if future.result():
                     count += 1
 
-        print(f"Found {count} idle NAT Gateways.")
-        print(f"Report written to {NATUnusedConfig.OUTPUT_CSV}.")
+        logger.info(f"Found {count} idle NAT Gateways.")
+        logger.info(f"Report written to {NATUnusedConfig.OUTPUT_CSV}.")

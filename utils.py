@@ -40,7 +40,7 @@ def create_boto3_session(credentials_file: Path = Path("./credentials")) -> boto
         profile_name = config.sections()[0]
         profile_config = config[profile_name]
 
-        print("Credentials file found, using custom credentials.")
+        logger.info("Credentials file found, using custom credentials.")
 
         session_kwargs.update(
             {

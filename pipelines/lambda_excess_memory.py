@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Custom Imports
 # ----------------------
 import utils
+from utils import logger
 from settings import LambdaExcessMemoryConfig
 
 
@@ -115,7 +116,7 @@ class LambdaExcessMemoryPipeline:
         try:
             return self._process_lambda(fn)
         except Exception as e:
-            print(f"Failed {fn['name']}: {e}")
+            logger.info(f"Failed {fn['name']}: {e}")
             return False
 
     def _sort_csv(self):
@@ -127,10 +128,10 @@ class LambdaExcessMemoryPipeline:
     # Main run function
     # ----------------------
     def run(self):
-        print("Fetching Lambda functions.")
+        logger.info("Fetching Lambda functions.")
         count = 0
         lambdas = list(self._fetch_lambdas())
-        print(f"Processing {len(lambdas)} Lambda functions.")
+        logger.info(f"Processing {len(lambdas)} Lambda functions.")
 
         with ThreadPoolExecutor(max_workers=LambdaExcessMemoryConfig.MAX_WORKERS) as executor:
             futures = [executor.submit(self._safe_process_lambda, fn) for fn in lambdas]
@@ -139,5 +140,5 @@ class LambdaExcessMemoryPipeline:
                     count += 1
 
         self._sort_csv()
-        print(f"Finished processing the Lambdas. Failed: {len(lambdas) - count}.")
-        print(f"Report written to {LambdaExcessMemoryConfig.OUTPUT_CSV}.")
+        logger.info(f"Finished processing the Lambdas. Failed: {len(lambdas) - count}.")
+        logger.info(f"Report written to {LambdaExcessMemoryConfig.OUTPUT_CSV}.")

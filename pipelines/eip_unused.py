@@ -2,6 +2,7 @@
 # Custom Imports
 # ----------------------
 import utils
+from utils import logger
 from settings import EIPUnusedConfig
 
 
@@ -49,14 +50,14 @@ class EIPUnusedPipeline:
     # Main run function
     # ----------------------
     def run(self):
-        print("Fetching Elastic IPs.")
+        logger.info("Fetching Elastic IPs.")
         eips = self._fetch_all_eips()
-        print(f"Processing {len(eips)} Elastic IPs.")
+        logger.info(f"Processing {len(eips)} Elastic IPs.")
 
         count = 0
         for eip in eips:
             if self._process_eip(eip):
                 count += 1
 
-        print(f"Found {count} unused Elastic IPs.")
-        print(f"Report written to {EIPUnusedConfig.OUTPUT_CSV}.")
+        logger.info(f"Found {count} unused Elastic IPs.")
+        logger.info(f"Report written to {EIPUnusedConfig.OUTPUT_CSV}.")

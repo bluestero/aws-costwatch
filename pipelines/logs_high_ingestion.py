@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # Custom Imports
 # ----------------------
 import utils
+from utils import logger
 from settings import LogsHighIngestionConfig
 
 
@@ -65,10 +66,10 @@ class LogsHighIngestionPipeline:
     # Main run function
     # ----------------------
     def run(self):
-        print("Scanning CloudWatch Log Groups for high ingestion.")
+        logger.info("Scanning CloudWatch Log Groups for high ingestion.")
         count = 0
         log_groups = list(self._fetch_log_groups())
-        print(f"Processing {len(log_groups)} log groups.")
+        logger.info(f"Processing {len(log_groups)} log groups.")
 
         with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
             futures = [executor.submit(self._process_log_group, lg) for lg in log_groups]
@@ -76,5 +77,5 @@ class LogsHighIngestionPipeline:
                 if future.result():
                     count += 1
 
-        print(f"Found {count} log groups with high ingestion.")
-        print(f"Report written to {LogsHighIngestionConfig.OUTPUT_CSV}")
+        logger.info(f"Found {count} log groups with high ingestion.")
+        logger.info(f"Report written to {LogsHighIngestionConfig.OUTPUT_CSV}")
