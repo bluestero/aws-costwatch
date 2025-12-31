@@ -1,3 +1,4 @@
+from utils import logger
 from pipelines import (
     EBSUnusedPipeline,
     EC2IdlePipeline,
@@ -9,27 +10,26 @@ from pipelines import (
     SnapshotOldPipeline,
     NATUnusedPipeline,
 )
-from datetime import datetime
 
 pipelines = [
     NATUnusedPipeline,
-    EBSUnusedPipeline,
-    EC2IdlePipeline,
-    EC2UnusedPipeline,
-    EIPUnusedPipeline,
-    LogsNeverExpirePipeline,
-    LogsHighIngestionPipeline,
-    LambdaExcessMemoryPipeline,
-    SnapshotOldPipeline,
+    # EBSUnusedPipeline,
+    # EC2IdlePipeline,
+    # EC2UnusedPipeline,
+    # EIPUnusedPipeline,
+    # LogsNeverExpirePipeline,
+    # LogsHighIngestionPipeline,
+    # LambdaExcessMemoryPipeline,
+    # SnapshotOldPipeline,
 ]
 
 for pipeline_cls in pipelines:
     pipeline_name = pipeline_cls.__name__
-    print(f"[{datetime.now().isoformat()}] Starting pipeline: {pipeline_name}.")
+    logger.info(f"Starting pipeline: {pipeline_name}.")
 
     try:
         pipeline_obj = pipeline_cls()
         pipeline_obj.run()
-        print(f"[{datetime.now().isoformat()}] Finished pipeline: {pipeline_name}.\n")
+        logger.info(f"Finished pipeline: {pipeline_name}.\n")
     except Exception as e:
-        print(f"[{datetime.now().isoformat()}] ERROR in pipeline {pipeline_name}: {e}.")
+        logger.exception(f"ERROR in pipeline: {pipeline_name}")

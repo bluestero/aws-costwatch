@@ -18,9 +18,7 @@ class EBSUnusedPipeline:
         self.cw = session.client("cloudwatch")
 
         # Initialize CSV with headers
-        utils.write_to_csv(
-            EBSUnusedConfig.OUTPUT_CSV, EBSUnusedConfig.CSV_HEADERS, mode="w"
-        )
+        utils.write_to_csv(EBSUnusedConfig.OUTPUT_CSV, EBSUnusedConfig.CSV_HEADERS, mode="w")
 
         # Time range
         self.end_time = datetime.now(timezone.utc)
@@ -123,10 +121,8 @@ class EBSUnusedPipeline:
         return True
 
     def _sort_csv(self):
-        df = pd.read_csv(EBSUnusedConfig.OUTPUT_CSV, encoding="utf-8")
-        df.sort_values(EBSUnusedConfig.SORT_BY_COLUMN).to_csv(
-            EBSUnusedConfig.OUTPUT_CSV, index=False
-        )
+        self.df = pd.read_csv(EBSUnusedConfig.OUTPUT_CSV, encoding="utf-8")
+        self.df.sort_values(EBSUnusedConfig.SORT_BY_COLUMN).to_csv(EBSUnusedConfig.OUTPUT_CSV, index=False)
 
     # ----------------------
     # Main run function
@@ -142,6 +138,10 @@ class EBSUnusedPipeline:
             for future in as_completed(futures):
                 if future.result():
                     count += 1
+
+        self._sort_csv()
+        if EBSUnusedConfig.WRITE_TO_GOOGLE_SHEET:
+            utils.write_df_to_sheet(EBSUnusedConfig.WORKSHEET_NAME, self.df)
 
         print(f"Found {count} unused EBS volumes.")
         print(f"Report written to {EBSUnusedConfig.OUTPUT_CSV}.")

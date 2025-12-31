@@ -1,8 +1,11 @@
 import csv
 import json
 import boto3
+import gspread
 import configparser
+import pandas as pd
 from pathlib import Path
+from google.oauth2.service_account import Credentials
 
 # ----------------------
 # Custom Imports
@@ -10,11 +13,20 @@ from pathlib import Path
 from settings import CommonConfig
 
 # -------------------------------------------
+# Logger
+# -------------------------------------------
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+# -------------------------------------------
 # AWS Boto3 Session
 # -------------------------------------------
-def create_boto3_session(
-    credentials_file: Path = Path("./credentials")
-) -> boto3.Session:
+def create_boto3_session(credentials_file: Path = Path("./credentials")) -> boto3.Session:
     """
     Create a boto3 session using a local credentials file if it exists,
     otherwise fall back to default AWS credential resolution.
@@ -50,6 +62,46 @@ def write_to_csv(file: str, row: list[str], mode: str):
         writer.writerow(row)
 
 # -------------------------------------------
+# Google Sheet Functions
+# -------------------------------------------
+def get_gspread_client():
+    creds = Credentials.from_service_account_file(
+        CommonConfig.GCC_JSON_PATH,
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ],
+    )
+    return gspread.authorize(creds)
+
+def get_worksheet(worksheet_name: str):
+    gc = get_gspread_client()
+    sheet = gc.open(CommonConfig.SPREADSHEET_NAME)
+    return sheet.worksheet(worksheet_name)
+
+def col_num_to_letter(n: int) -> str:
+    result = ""
+    while n > 0:
+        n, remainder = divmod(n - 1, 26)
+        result = chr(65 + remainder) + result
+    return result
+
+def write_df_to_sheet(worksheet_name: str, df: pd.DataFrame):
+    if df.empty:
+        return
+
+    worksheet = get_worksheet(worksheet_name)
+    values = df.values.tolist()
+    num_columns = len(values[0])
+    end_row = 2 + len(values) - 1
+    end_col = col_num_to_letter(num_columns)
+    clear_range = f"A2:{end_col}"
+    cell_range = f"A2:{end_col}{end_row}"
+
+    worksheet.batch_clear([clear_range])
+    worksheet.update(cell_range, values, value_input_option="USER_ENTERED")
+
+# -------------------------------------------
 # AWS EC2 Price Fetcher
 # -------------------------------------------
 class EC2Pricing:
@@ -61,11 +113,11 @@ class EC2Pricing:
     }
 
     def __init__(self, boto3_session=None):
-        session = boto3_session or boto3.Session()
+        self.session = boto3_session or boto3.Session()
 
     def get_on_demand_price(self, instance_type: str, region: str = "us-east-1", os: str = "Linux") -> float:
         location = self.REGION_NAME_MAP.get(region, "US East (N. Virginia)")
-        pricing_client = session.client("pricing", region_name="us-east-1")
+        pricing_client = self.session.client("pricing", region_name="us-east-1")
 
         response = pricing_client.get_products(
             ServiceCode="AmazonEC2",
@@ -91,7 +143,7 @@ class EC2Pricing:
             return f"Error parsing  price: {e}."
 
     def get_spot_price(self, instance_type: str, region: str = "us-east-1", os: str = "Linux") -> float:
-        ec2_client = session.client("ec2", region_name=region)
+        ec2_client = self.session.client("ec2", region_name=region)
         try:
             spot_history = ec2_client.describe_spot_price_history(
                 InstanceTypes=[instance_type],
