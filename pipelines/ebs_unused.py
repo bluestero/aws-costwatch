@@ -122,8 +122,8 @@ class EBSUnusedPipeline:
         return True
 
     def _sort_csv(self):
-        self.df = pd.read_csv(EBSUnusedConfig.OUTPUT_CSV, encoding="utf-8")
-        self.df.sort_values(EBSUnusedConfig.SORT_BY_COLUMN).to_csv(EBSUnusedConfig.OUTPUT_CSV, index=False)
+        df = pd.read_csv(EBSUnusedConfig.OUTPUT_CSV, encoding="utf-8")
+        df.sort_values(EBSUnusedConfig.SORT_BY_COLUMN).to_csv(EBSUnusedConfig.OUTPUT_CSV, index=False)
 
     # ----------------------
     # Main run function
@@ -142,8 +142,8 @@ class EBSUnusedPipeline:
 
         self._sort_csv()
         if EBSUnusedConfig.WRITE_TO_GOOGLE_SHEET:
-
-            utils.write_df_to_sheet(EBSUnusedConfig.WORKSHEET_NAME, self.df)
+            utils.write_df_to_sheet(EBSUnusedConfig.WORKSHEET_NAME, EBSUnusedConfig.OUTPUT_CSV)
+            logger.info(f"Updated the {EBSUnusedConfig.WORKSHEET_NAME} sheet successfully.")
 
         logger.info(f"Found {count} unused EBS volumes.")
         logger.info(f"Report written to {EBSUnusedConfig.OUTPUT_CSV}.")

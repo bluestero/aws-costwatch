@@ -84,5 +84,9 @@ class NATUnusedPipeline:
                 if future.result():
                     count += 1
 
+        if NATUnusedConfig.WRITE_TO_GOOGLE_SHEET:
+            utils.write_df_to_sheet(NATUnusedConfig.WORKSHEET_NAME, NATUnusedConfig.OUTPUT_CSV)
+            logger.info(f"Updated the {NATUnusedConfig.WORKSHEET_NAME} sheet successfully.")
+
         logger.info(f"Found {count} idle NAT Gateways.")
         logger.info(f"Report written to {NATUnusedConfig.OUTPUT_CSV}.")

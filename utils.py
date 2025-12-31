@@ -86,7 +86,8 @@ def col_num_to_letter(n: int) -> str:
         result = chr(65 + remainder) + result
     return result
 
-def write_df_to_sheet(worksheet_name: str, df: pd.DataFrame):
+def write_df_to_sheet(worksheet_name: str, df_path: str):
+    df = pd.read_csv(df_path, encoding = "utf-8")
     if df.empty:
         return
 
