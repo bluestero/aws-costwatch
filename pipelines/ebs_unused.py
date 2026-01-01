@@ -1,6 +1,5 @@
 import pandas as pd
 from datetime import datetime, timezone, timedelta
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ----------------------
 # Custom Imports
@@ -8,22 +7,23 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import utils
 from utils import logger
 from settings import EBSUnusedConfig
+from pipelines.base import BasePipeline
 
 
-class EBSUnusedPipeline:
+class EBSUnusedPipeline(BasePipeline):
+    CONFIG = EBSUnusedConfig
+
     def __init__(self):
+        super().__init__()
 
         # Clients
         session = utils.create_boto3_session()
         self.ec2 = session.client("ec2")
         self.cw = session.client("cloudwatch")
 
-        # Initialize CSV with headers
-        utils.write_to_csv(EBSUnusedConfig.OUTPUT_CSV, EBSUnusedConfig.CSV_HEADERS, mode="w")
-
         # Time range
         self.end_time = datetime.now(timezone.utc)
-        self.start_time = self.end_time - timedelta(days=EBSUnusedConfig.LOOKBACK_DAYS)
+        self.start_time = self.end_time - timedelta(days=self.CONFIG.LOOKBACK_DAYS)
 
     # ----------------------
     # Private helpers
@@ -49,8 +49,7 @@ class EBSUnusedPipeline:
 
         return False
 
-    def _is_volume_active(self, vol_id: str) -> bool:
-        """Returns True if there is any read/write I/O for this volume in the lookback period."""
+    def _is_volume_active(self, volume_id: str) -> bool:
         resp = self.cw.get_metric_data(
             MetricDataQueries=[
                 {
@@ -59,7 +58,7 @@ class EBSUnusedPipeline:
                         "Metric": {
                             "Namespace": "AWS/EBS",
                             "MetricName": "VolumeReadOps",
-                            "Dimensions": [{"Name": "VolumeId", "Value": vol_id}],
+                            "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                         },
                         "Period": 86400,
                         "Stat": "Sum",
@@ -72,7 +71,7 @@ class EBSUnusedPipeline:
                         "Metric": {
                             "Namespace": "AWS/EBS",
                             "MetricName": "VolumeWriteOps",
-                            "Dimensions": [{"Name": "VolumeId", "Value": vol_id}],
+                            "Dimensions": [{"Name": "VolumeId", "Value": volume_id}],
                         },
                         "Period": 86400,
                         "Stat": "Sum",
@@ -84,28 +83,30 @@ class EBSUnusedPipeline:
             EndTime=self.end_time,
         )
 
-        for result in resp["MetricDataResults"]:
+        for result in resp.get("MetricDataResults", []):
             if any(v > 0 for v in result.get("Values", [])):
                 return True
+
         return False
 
-    def _fetch_volumes(self):
+    # -------------------------------
+    # Required BasePipeline methods
+    # -------------------------------
+    def fetch_items(self):
+        logger.info("Fetching all EBS volumes.")
         response = self.ec2.describe_volumes()
         return response.get("Volumes", [])
 
-    def _process_volume(self, volume: dict):
+    def process_item(self, volume: dict) -> bool:
         tags = volume.get("Tags", [])
         volume_id = volume["VolumeId"]
 
-        # Skip Kubernetes-managed volumes
         if self._is_kubernetes_volume(tags):
             return False
 
-        # Skip explicitly protected volumes
         if self._is_protected_volume(tags):
             return False
 
-        # Skip if volume is active
         if self._is_volume_active(volume_id):
             return False
 
@@ -118,32 +119,5 @@ class EBSUnusedPipeline:
         )
 
         row = [volume_id, size_gb, volume_type, create_time]
-        utils.write_to_csv(EBSUnusedConfig.OUTPUT_CSV, row, mode="a")
+        utils.write_to_csv(self.CONFIG.OUTPUT_CSV, row, mode="a")
         return True
-
-    def _sort_csv(self):
-        df = pd.read_csv(EBSUnusedConfig.OUTPUT_CSV, encoding="utf-8")
-        df.sort_values(EBSUnusedConfig.SORT_BY_COLUMN).to_csv(EBSUnusedConfig.OUTPUT_CSV, index=False)
-
-    # ----------------------
-    # Main run function
-    # ----------------------
-    def run(self):
-        logger.info("Fetching all EBS volumes.")
-        count = 0
-        volumes = self._fetch_volumes()
-        logger.info(f"Processing {len(volumes)} EBS volumes.")
-
-        with ThreadPoolExecutor(max_workers=EBSUnusedConfig.MAX_WORKERS) as executor:
-            futures = [executor.submit(self._process_volume, volume) for volume in volumes]
-            for future in as_completed(futures):
-                if future.result():
-                    count += 1
-
-        self._sort_csv()
-        if EBSUnusedConfig.WRITE_TO_GOOGLE_SHEET:
-            utils.write_df_to_sheet(EBSUnusedConfig.WORKSHEET_NAME, EBSUnusedConfig.OUTPUT_CSV)
-            logger.info(f"Updated the {EBSUnusedConfig.WORKSHEET_NAME} sheet successfully.")
-
-        logger.info(f"Found {count} unused EBS volumes.")
-        logger.info(f"Report written to {EBSUnusedConfig.OUTPUT_CSV}.")

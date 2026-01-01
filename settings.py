@@ -1,11 +1,13 @@
 from pathlib import Path
 
+
 # -------------------------------------------
 # Common Config
 # -------------------------------------------
 class CommonConfig:
 
     # Basic
+    MAX_CPU_WORKERS = 4
     AWS_REGION = "us-east-1"
     MAIN_DIR = Path(__file__).parent
     OUTPUT_CSV_DIR = MAIN_DIR / "output_files"
@@ -53,6 +55,7 @@ class EC2UnusedConfig(CommonConfig):
 # EIP Unused
 # -------------------------------------------
 class EIPUnusedConfig(CommonConfig):
+    SORT_BY_COLUMN = "Public IP"
     WORKSHEET_NAME = "EIP - Unused"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "eip_unused.csv"
     CSV_HEADERS = ["Public IP", "Allocation ID"]
@@ -62,8 +65,8 @@ class EIPUnusedConfig(CommonConfig):
 # -------------------------------------------
 class LogsNeverExpireConfig(CommonConfig):
     MAX_WORKERS = 6
-    WORKSHEET_NAME = "Logs - Never Expire"
     SORT_BY_COLUMN = "Stored (GB)"
+    WORKSHEET_NAME = "Logs - Never Expire"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "logs_never_expire.csv"
     CSV_HEADERS = ["Log Group", "Stored (GB)", "Monthly Ingested (GB)"]
 

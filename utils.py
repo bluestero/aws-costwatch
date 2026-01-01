@@ -7,21 +7,22 @@ import pandas as pd
 from pathlib import Path
 from google.oauth2.service_account import Credentials
 
-# ----------------------
-# Custom Imports
-# ----------------------
-from settings import CommonConfig
-
 # -------------------------------------------
 # Logger
 # -------------------------------------------
 import logging
 logging.basicConfig(
     level=logging.INFO,
-    format="[%(asctime)s] %(levelname)s: %(message)s",
+    format="[%(asctime)s] %(levelname)s: %(message)s [%(filename)s]",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# ----------------------
+# Custom Imports
+# ----------------------
+from settings import CommonConfig
+
 
 # -------------------------------------------
 # AWS Boto3 Session
@@ -40,7 +41,7 @@ def create_boto3_session(credentials_file: Path = Path("./credentials")) -> boto
         profile_name = config.sections()[0]
         profile_config = config[profile_name]
 
-        logger.info("Credentials file found, using custom credentials.")
+        logger.debug("Credentials file found, using custom credentials.")
 
         session_kwargs.update(
             {
@@ -86,8 +87,7 @@ def col_num_to_letter(n: int) -> str:
         result = chr(65 + remainder) + result
     return result
 
-def write_df_to_sheet(worksheet_name: str, df_path: str):
-    df = pd.read_csv(df_path, encoding = "utf-8")
+def write_df_to_sheet(worksheet_name: str, df: pd.DataFrame):
     if df.empty:
         return
 

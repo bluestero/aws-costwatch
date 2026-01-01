@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ----------------------
 # Custom Imports
@@ -7,26 +6,51 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import utils
 from utils import logger
 from settings import NATUnusedConfig
+from pipelines.base import BasePipeline
 
 
-class NATUnusedPipeline:
+class NATUnusedPipeline(BasePipeline):
+    CONFIG = NATUnusedConfig
+
     def __init__(self):
+        super().__init__()
 
         # Clients
         session = utils.create_boto3_session()
         self.ec2 = session.client("ec2")
         self.cw = session.client("cloudwatch")
 
-        # Writing headers
-        utils.write_to_csv(NATUnusedConfig.OUTPUT_CSV, NATUnusedConfig.CSV_HEADERS, mode="w")
-
         # Time range
         self.end_time = datetime.now(timezone.utc)
         self.start_time = self.end_time - timedelta(days=NATUnusedConfig.LOOKBACK_DAYS)
 
-    # ----------------------
+    # -------------------------------
+    # Required BasePipeline methods
+    # -------------------------------
+    def fetch_items(self):
+        logger.info("Fetching all NAT Gateways.")
+        return self.ec2.describe_nat_gateways().get("NatGateways", [])
+
+    def process_item(self, nat: dict) -> bool:
+        nat_id = nat["NatGatewayId"]
+
+        if not self._is_nat_idle(nat_id):
+            return False
+
+        row = [
+            nat_id,
+            nat["VpcId"],
+            nat["State"],
+            nat.get("SubnetId", "N/A"),
+            nat["CreateTime"].strftime("%Y-%m-%d %H:%M:%S"),
+        ]
+
+        utils.write_to_csv(self.CONFIG.OUTPUT_CSV, row, mode="a")
+        return True
+
+    # -------------------------------
     # Private helpers
-    # ----------------------
+    # -------------------------------
     def _is_nat_idle(self, nat_id: str) -> bool:
         metrics_to_check = [
             "ActiveConnectionCount",
@@ -41,52 +65,12 @@ class NATUnusedPipeline:
                 Dimensions=[{"Name": "NatGatewayId", "Value": nat_id}],
                 StartTime=self.start_time,
                 EndTime=self.end_time,
-                Period=86400,  # 1 day
+                Period=86400,
                 Statistics=["Sum"],
             )
 
             for dp in resp.get("Datapoints", []):
                 if dp.get("Sum", 0) > 0:
                     return False
+
         return True
-
-    def _fetch_nat_gateways(self):
-        """Fetch all NAT Gateways in the account."""
-        return self.ec2.describe_nat_gateways().get("NatGateways", [])
-
-    def _process_nat(self, nat: dict):
-        nat_id = nat["NatGatewayId"]
-        if not self._is_nat_idle(nat_id):
-            return False
-
-        row = [
-            nat_id,
-            nat["VpcId"],
-            nat["State"],
-            nat.get("SubnetId", "N/A"),
-            nat["CreateTime"].strftime("%Y-%m-%d %H:%M:%S"),
-        ]
-        utils.write_to_csv(NATUnusedConfig.OUTPUT_CSV, row, mode="a")
-        return True
-
-    # ----------------------
-    # Main run function
-    # ----------------------
-    def run(self):
-        logger.info("Fetching all NAT Gateways.")
-        count = 0
-        nat_gateways = self._fetch_nat_gateways()
-        logger.info(f"Processing {len(nat_gateways)} NAT Gateways.")
-
-        with ThreadPoolExecutor(max_workers=NATUnusedConfig.MAX_WORKERS) as executor:
-            futures = [executor.submit(self._process_nat, nat) for nat in nat_gateways]
-            for future in as_completed(futures):
-                if future.result():
-                    count += 1
-
-        if NATUnusedConfig.WRITE_TO_GOOGLE_SHEET:
-            utils.write_df_to_sheet(NATUnusedConfig.WORKSHEET_NAME, NATUnusedConfig.OUTPUT_CSV)
-            logger.info(f"Updated the {NATUnusedConfig.WORKSHEET_NAME} sheet successfully.")
-
-        logger.info(f"Found {count} idle NAT Gateways.")
-        logger.info(f"Report written to {NATUnusedConfig.OUTPUT_CSV}.")
