@@ -6,13 +6,12 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 pipelines_to_run = [
     pipelines.NATUnusedPipeline,
     pipelines.EBSUnusedPipeline,
-    # pipelines.EC2IdlePipeline,
-    # pipelines.EC2UnusedPipeline,
-    # pipelines.EIPUnusedPipeline,
-    # pipelines.LogsNeverExpirePipeline,
-    # pipelines.LogsHighIngestionPipeline,
-    # pipelines.LambdaExcessMemoryPipeline,
-    # pipelines.SnapshotOldPipeline,
+    pipelines.EC2UnusedPipeline,
+    pipelines.EIPUnusedPipeline,
+    pipelines.LogsNeverExpirePipeline,
+    pipelines.LogsHighIngestionPipeline,
+    pipelines.LambdaExcessMemoryPipeline,
+    pipelines.SnapshotOldPipeline,
 ]
 
 def run_pipeline(pipeline_cls):

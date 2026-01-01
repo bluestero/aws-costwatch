@@ -1,6 +1,4 @@
-import pandas as pd
 from datetime import datetime, timedelta, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ----------------------
 # Custom Imports
@@ -8,13 +6,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import utils
 from utils import logger
 from settings import LogsHighIngestionConfig
+from pipelines.base import BasePipeline
 
 
-class LogsHighIngestionPipeline:
-    PERIOD_DAYS = 30
-    MAX_WORKERS = 8
+class LogsHighIngestionPipeline(BasePipeline):
+    CONFIG = LogsHighIngestionConfig
 
     def __init__(self):
+        super().__init__()
 
         # Clients
         session = utils.create_boto3_session()
@@ -23,20 +22,11 @@ class LogsHighIngestionPipeline:
 
         # Time range
         self.end_time = datetime.now(timezone.utc)
-        self.start_time = self.end_time - timedelta(days=self.PERIOD_DAYS)
-
-        # Writing headers
-        utils.write_to_csv(LogsHighIngestionConfig.OUTPUT_CSV, LogsHighIngestionConfig.CSV_HEADERS, mode="w")
+        self.start_time = self.end_time - timedelta(days=self.CONFIG.LOOKBACK_DAYS)
 
     # ----------------------
     # Private helpers
     # ----------------------
-    def _fetch_log_groups(self):
-        paginator = self.logs.get_paginator("describe_log_groups")
-        for page in paginator.paginate():
-            for lg in page.get("logGroups", []):
-                yield lg
-
     def _get_monthly_ingested_bytes(self, log_group_name: str) -> int:
         response = self.cw.get_metric_statistics(
             Namespace="AWS/Logs",
@@ -49,33 +39,27 @@ class LogsHighIngestionPipeline:
         )
         return int(sum(dp["Sum"] for dp in response.get("Datapoints", [])))
 
-    def _process_log_group(self, lg: dict):
+    # -------------------------------
+    # Required BasePipeline methods
+    # -------------------------------
+    def fetch_items(self):
+        logger.info("Scanning CloudWatch Log Groups for high ingestion.")
+        paginator = self.logs.get_paginator("describe_log_groups")
+
+        log_groups = []
+        for page in paginator.paginate():
+            log_groups.extend(page.get("logGroups", []))
+
+        return log_groups
+
+    def process_item(self, lg: dict) -> bool:
         log_group = lg["logGroupName"]
         monthly_ingested_bytes = self._get_monthly_ingested_bytes(log_group)
         monthly_ingested_gb = monthly_ingested_bytes / 1_000_000_000
 
-        # Skip if below threshold
-        if monthly_ingested_gb < LogsHighIngestionConfig.INGESTION_THRESHOLD_GB:
+        if monthly_ingested_gb < self.CONFIG.INGESTION_THRESHOLD_GB:
             return False
 
         row = [log_group, round(monthly_ingested_gb, 2)]
-        utils.write_to_csv(LogsHighIngestionConfig.OUTPUT_CSV, row, mode="a")
+        utils.write_to_csv(self.CONFIG.OUTPUT_CSV, row, mode="a")
         return True
-
-    # ----------------------
-    # Main run function
-    # ----------------------
-    def run(self):
-        logger.info("Scanning CloudWatch Log Groups for high ingestion.")
-        count = 0
-        log_groups = list(self._fetch_log_groups())
-        logger.info(f"Processing {len(log_groups)} log groups.")
-
-        with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as executor:
-            futures = [executor.submit(self._process_log_group, lg) for lg in log_groups]
-            for future in as_completed(futures):
-                if future.result():
-                    count += 1
-
-        logger.info(f"Found {count} log groups with high ingestion.")
-        logger.info(f"Report written to {LogsHighIngestionConfig.OUTPUT_CSV}")

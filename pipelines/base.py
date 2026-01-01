@@ -32,17 +32,16 @@ class BasePipeline:
 
         # Sorting and saving the CSV.
         df = pd.read_csv(self.CONFIG.OUTPUT_CSV, encoding = "utf-8")
-        df = df.sort_values(self.CONFIG.SORT_BY_COLUMN)
+        df = df.sort_values(self.CONFIG.SORT_BY_COLUMN, ascending = self.CONFIG.SORT_ASCENDING)
 
         # Writing the DataFrame to the GSheet.
-        if CommonConfig.WRITE_TO_GOOGLE_SHEET:
+        if CommonConfig.WRITE_TO_GOOGLE_SHEET and not df.empty:
             utils.write_df_to_sheet(self.CONFIG.WORKSHEET_NAME, df)
             logger.info(f"[{self.pipeline_name}] Updated the {self.CONFIG.WORKSHEET_NAME} sheet successfully.")
 
     def run(self):
         items = self.fetch_items()
         logger.info(f"[{self.pipeline_name}] Processing {len(items)} items.")
-        exit()
 
         processed_count = 0
 
@@ -54,4 +53,4 @@ class BasePipeline:
                     processed_count += 1
 
         self.post_process()
-        logger[{self.pipeline_name}] (f"[{self.pipeline_name}] Found {processed_count} relevant items.")
+        logger.info(f"[{self.pipeline_name}] Found {processed_count} relevant items.")

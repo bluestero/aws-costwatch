@@ -7,7 +7,9 @@ from pathlib import Path
 class CommonConfig:
 
     # Basic
+    MAX_WORKERS = 6
     MAX_CPU_WORKERS = 4
+    SORT_ASCENDING = True
     AWS_REGION = "us-east-1"
     MAIN_DIR = Path(__file__).parent
     OUTPUT_CSV_DIR = MAIN_DIR / "output_files"
@@ -21,35 +23,24 @@ class CommonConfig:
 # EBS Unused
 # -------------------------------------------
 class EBSUnusedConfig(CommonConfig):
-    MAX_WORKERS = 8
     LOOKBACK_DAYS = 14
+    SORT_ASCENDING = False
     SORT_BY_COLUMN = "Size (GB)"
     WORKSHEET_NAME = "EBS - Unused"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ebs_unused.csv"
     CSV_HEADERS = ["Volume ID", "Size (GB)", "Volume Type", "Created Time"]
 
 # -------------------------------------------
-# EC2 Idle
-# -------------------------------------------
-class EC2IdleConfig(CommonConfig):
-    MAX_WORKERS = 8
-    LOOKBACK_DAYS = 14
-    SORT_BY_COLUMN = "Status"
-    CPU_IDLE_THRESHOLD_PERCENTAGE = 5.0
-    NET_IDLE_THRESHOLD_MB = 5 * 1024 * 1024
-    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_idle.csv"
-    CSV_HEADERS = ["Instance ID", "Name", "Type", "Lifecycle", "State", "Launch Time", "Status", "Max CPU (%)","Max NetIn (MB)", "Max NetOut (MB)"]
-
-# -------------------------------------------
 # EC2 Unused
 # -------------------------------------------
 class EC2UnusedConfig(CommonConfig):
-    MAX_WORKERS =  8
+    LOOKBACK_DAYS = 14
+    CPU_IDLE_THRESHOLD_PERCENTAGE = 5.0
+    NET_IDLE_THRESHOLD_MB = 5 * 1024 * 1024
     WORKSHEET_NAME = "EC2 - Unused"
-    SORT_BY_COLUMN = "EC2 Hourly Cost ($)"
-    INPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_idle.csv"
+    SORT_BY_COLUMN = "Status"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_unused.csv"
-    CSV_HEADERS = ["Instance ID", "Name", "Type", "Lifecycle", "Status", "EC2 Hourly Cost ($)", "Volumes Attached", "Volume Size (GB)", "EIPs Attached"]
+    CSV_HEADERS = ["Instance ID", "Name", "Type", "Lifecycle", "Status", "EC2 Hourly Cost ($)", "Volumes Attached", "Volume Size (GB)", "EIPs Attached", "Max CPU (%)", "Max NetIn (MB)", "Max NetOut (MB)"]
 
 # -------------------------------------------
 # EIP Unused
@@ -64,7 +55,7 @@ class EIPUnusedConfig(CommonConfig):
 # Logs Never Expire
 # -------------------------------------------
 class LogsNeverExpireConfig(CommonConfig):
-    MAX_WORKERS = 6
+    SORT_ASCENDING = False
     SORT_BY_COLUMN = "Stored (GB)"
     WORKSHEET_NAME = "Logs - Never Expire"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "logs_never_expire.csv"
@@ -74,8 +65,10 @@ class LogsNeverExpireConfig(CommonConfig):
 # Logs High Ingestion
 # -------------------------------------------
 class LogsHighIngestionConfig(CommonConfig):
-    MAX_WORKERS = 6
+    LOOKBACK_DAYS = 30
+    SORT_ASCENDING = False
     INGESTION_THRESHOLD_GB = 1000
+    WORKSHEET_NAME = "Logs - High Ingestion"
     SORT_BY_COLUMN = "Monthly Ingested (GB)"
     CSV_HEADERS = ["Log Group", "Monthly Ingested (GB)"]
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "logs_high_ingestion.csv"
@@ -84,7 +77,7 @@ class LogsHighIngestionConfig(CommonConfig):
 # Lambda Excess Memory
 # -------------------------------------------
 class LambdaExcessMemoryConfig(CommonConfig):
-    MAX_WORKERS =  8
+    SORT_ASCENDING = False
     INVOCATION_LOOKBACK_DAYS = 30
     SORT_BY_COLUMN = "Invocations"
     LOGS_INSIGHTS_LOOKBACK_DAYS = 7
@@ -96,7 +89,7 @@ class LambdaExcessMemoryConfig(CommonConfig):
 # Snapshot Old
 # -------------------------------------------
 class SnapshotOldConfig(CommonConfig):
-    MAX_WORKERS =  8
+    SORT_ASCENDING = False
     SORT_BY_COLUMN = "Size (GB)"
     WORKSHEET_NAME = "Snapshot - Old"
     SNAPSHOT_CUTOFF_DATE = "2024-05-01"
@@ -107,7 +100,6 @@ class SnapshotOldConfig(CommonConfig):
 # NAT Gateway Unused
 # -------------------------------------------
 class NATUnusedConfig(CommonConfig):
-    MAX_WORKERS = 8
     LOOKBACK_DAYS = 30
     WORKSHEET_NAME = "NAT - Unused"
     SORT_BY_COLUMN = "Created Time"

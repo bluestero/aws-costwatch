@@ -5,6 +5,7 @@ import gspread
 import configparser
 import pandas as pd
 from pathlib import Path
+from datetime import datetime, timedelta
 from google.oauth2.service_account import Credentials
 
 # -------------------------------------------
@@ -111,56 +112,113 @@ class EC2Pricing:
         "us-east-2": "US East (Ohio)",
         "us-west-1": "US West (N. California)",
         "us-west-2": "US West (Oregon)",
+        "eu-west-1": "EU (Ireland)",
+        "eu-central-1": "EU (Frankfurt)",
+        "ap-south-1": "Asia Pacific (Mumbai)",
     }
 
-    def __init__(self, boto3_session=None):
-        self.session = boto3_session or boto3.Session()
+    def __init__(self, session: boto3.Session = None):
+        session = session or create_boto3_session()
+        self.pricing = session.client("pricing", region_name="us-east-1")
+        self.ec2 = session.client("ec2")
 
-    def get_on_demand_price(self, instance_type: str, region: str = "us-east-1", os: str = "Linux") -> float:
-        location = self.REGION_NAME_MAP.get(region, "US East (N. Virginia)")
-        pricing_client = self.session.client("pricing", region_name="us-east-1")
+        # Cache: (instance_type, region, os, lifecycle) -> hourly_price
+        self._cache = {}
 
-        response = pricing_client.get_products(
+    # ----------------------
+    # Public API
+    # ----------------------
+    def get_hourly_price(self, instance: dict) -> float:
+        instance_type = instance["InstanceType"]
+
+        az = instance["Placement"]["AvailabilityZone"]
+        region = az[:-1]
+
+        lifecycle = instance.get("InstanceLifecycle", "on-demand").lower()
+
+        platform = instance.get("PlatformDetails", "Linux/UNIX")
+        operating_system = "Windows" if "Windows" in platform else "Linux"
+
+        cache_key = (instance_type, region, operating_system, lifecycle)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
+        if lifecycle == "spot":
+            price = self._get_spot_price(instance_type, operating_system)
+        else:
+            has_license = bool(instance.get("ProductCodes"))
+            price = self._get_on_demand_price(instance_type, region, operating_system, has_license)
+
+        self._cache[cache_key] = price
+        return price
+
+    # ----------------------
+    # Internal helpers
+    # ----------------------
+    def _get_on_demand_price(self, instance_type: str, region: str, os: str, has_license: bool) -> float:
+        location = self.REGION_NAME_MAP.get(region)
+        if not location:
+            return 0.0
+
+        paginator = self.pricing.get_paginator("get_products")
+
+        for page in paginator.paginate(
             ServiceCode="AmazonEC2",
             Filters=[
                 {"Type": "TERM_MATCH", "Field": "instanceType", "Value": instance_type},
                 {"Type": "TERM_MATCH", "Field": "location", "Value": location},
                 {"Type": "TERM_MATCH", "Field": "operatingSystem", "Value": os},
-                {"Type": "TERM_MATCH", "Field": "preInstalledSw", "Value": "NA"},
-                {"Type": "TERM_MATCH", "Field": "tenancy", "Value": "Shared"},
             ],
-            MaxResults=1
+        ):
+            for raw in page.get("PriceList", []):
+                product = json.loads(raw)
+
+                if product.get("product", {}).get("productFamily") != "Compute Instance":
+                    continue
+
+                attrs = product["product"]["attributes"]
+                if attrs.get("tenancy") != "Shared":
+                    continue
+
+                terms = product.get("terms", {}).get("OnDemand", {})
+
+                for sku in terms.values():
+                    for dim in sku.get("priceDimensions", {}).values():
+                        desc = dim.get("description", "")
+                        usd = dim.get("pricePerUnit", {}).get("USD")
+
+                        # Skip reserved usage
+                        if "Reservation" in desc:
+                            continue
+
+                        # If instance is NOT licensed, skip licensed SKUs
+                        if not has_license and " with " in desc:
+                            continue
+
+                        # If instance IS licensed, require licensed SKU
+                        if has_license and " with " not in desc:
+                            continue
+
+                        if dim.get("unit") == "Hrs" and usd and float(usd) > 0:
+                            return float(usd)
+
+        return 0.0
+
+    def _get_spot_price(self, instance_type: str, os: str) -> float:
+        end = datetime.utcnow()
+        start = end - timedelta(hours=24)
+
+        product = "Windows" if os == "Windows" else "Linux/UNIX"
+
+        resp = self.ec2.describe_spot_price_history(
+            InstanceTypes=[instance_type],
+            ProductDescriptions=[product],
+            StartTime=start,
+            EndTime=end,
         )
 
-        price_list = [json.loads(p) for p in response["PriceList"]]
-        try:
-            terms = price_list[0]["terms"]["OnDemand"]
-            for sku in terms:
-                price_dimensions = terms[sku]["priceDimensions"]
-                for pd in price_dimensions:
-                    hourly_price = float(price_dimensions[pd]["pricePerUnit"]["USD"])
-                    return hourly_price
-        except Exception as e:
-            return f"Error parsing  price: {e}."
+        prices = [float(p["SpotPrice"]) for p in resp.get("SpotPriceHistory", [])]
+        if not prices:
+            return 0.0
 
-    def get_spot_price(self, instance_type: str, region: str = "us-east-1", os: str = "Linux") -> float:
-        ec2_client = self.session.client("ec2", region_name=region)
-        try:
-            spot_history = ec2_client.describe_spot_price_history(
-                InstanceTypes=[instance_type],
-                ProductDescriptions=[f"{os}/UNIX"],
-                MaxResults=1
-            )
-            hourly_price = float(spot_history["SpotPriceHistory"][0]["SpotPrice"])
-            return hourly_price
-        except Exception as e:
-            return f"Error fetching spot price: {e}"
-
-    def get_hourly_price(self, instance_type: str, lifecycle: str, region: str = "us-east-1", os: str = "Linux") -> float:
-        lifecycle = lifecycle.lower()
-        if lifecycle == "on-demand":
-            return self.get_on_demand_price(instance_type, region, os)
-        elif lifecycle == "spot":
-            return self.get_spot_price(instance_type, region, os)
-        else:
-            return "Unsupported lifecycle. Use 'on-demand' or 'spot'."
+        return round(sum(prices) / len(prices), 4)

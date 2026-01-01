@@ -4,31 +4,36 @@
 import utils
 from utils import logger
 from settings import EIPUnusedConfig
+from pipelines.base import BasePipeline
 
 
-class EIPUnusedPipeline:
+class EIPUnusedPipeline(BasePipeline):
+    CONFIG = EIPUnusedConfig
+
     def __init__(self):
+        super().__init__()
 
         # Clients
         session = utils.create_boto3_session()
         self.ec2 = session.client("ec2")
 
-        # Writing headers
-        utils.write_to_csv(EIPUnusedConfig.OUTPUT_CSV, EIPUnusedConfig.CSV_HEADERS, mode="w")
-
     # ----------------------
     # Private helpers
     # ----------------------
-    def _fetch_all_eips(self):
-        response = self.ec2.describe_addresses()
-        return response.get("Addresses", [])
-
     def _is_attached_to_running_instance(self, instance_id: str) -> bool:
         response = self.ec2.describe_instances(InstanceIds=[instance_id])
         instance = response["Reservations"][0]["Instances"][0]
         return instance["State"]["Name"] == "running"
 
-    def _process_eip(self, eip: dict):
+    # -------------------------------
+    # Required BasePipeline methods
+    # -------------------------------
+    def fetch_items(self):
+        logger.info("Fetching Elastic IPs.")
+        response = self.ec2.describe_addresses()
+        return response.get("Addresses", [])
+
+    def process_item(self, eip: dict) -> bool:
         instance_id = eip.get("InstanceId")
         association_id = eip.get("AssociationId")
         network_interface_id = eip.get("NetworkInterfaceId")
@@ -42,22 +47,5 @@ class EIPUnusedPipeline:
             return False
 
         row = [eip["PublicIp"], eip["AllocationId"]]
-
-        utils.write_to_csv(EIPUnusedConfig.OUTPUT_CSV, row, mode="a")
+        utils.write_to_csv(self.CONFIG.OUTPUT_CSV, row, mode="a")
         return True
-
-    # ----------------------
-    # Main run function
-    # ----------------------
-    def run(self):
-        logger.info("Fetching Elastic IPs.")
-        eips = self._fetch_all_eips()
-        logger.info(f"Processing {len(eips)} Elastic IPs.")
-
-        count = 0
-        for eip in eips:
-            if self._process_eip(eip):
-                count += 1
-
-        logger.info(f"Found {count} unused Elastic IPs.")
-        logger.info(f"Report written to {EIPUnusedConfig.OUTPUT_CSV}.")

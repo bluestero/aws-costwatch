@@ -1,7 +1,5 @@
 import time
-import pandas as pd
 from datetime import datetime, timedelta, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ----------------------
 # Custom Imports
@@ -9,11 +7,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import utils
 from utils import logger
 from settings import LambdaExcessMemoryConfig
+from pipelines.base import BasePipeline
 
 
-class LambdaExcessMemoryPipeline:
+class LambdaExcessMemoryPipeline(BasePipeline):
+    CONFIG = LambdaExcessMemoryConfig
 
     def __init__(self):
+        super().__init__()
 
         # Clients
         session = utils.create_boto3_session()
@@ -23,24 +24,12 @@ class LambdaExcessMemoryPipeline:
 
         # Time range
         self.end_time = datetime.now(timezone.utc)
-        self.invocation_start_time = self.end_time - timedelta(days=LambdaExcessMemoryConfig.INVOCATION_LOOKBACK_DAYS)
-        self.logs_insights_start_time = self.end_time - timedelta(days=LambdaExcessMemoryConfig.LOGS_INSIGHTS_LOOKBACK_DAYS)
-
-        # Writing headers
-        utils.write_to_csv(LambdaExcessMemoryConfig.OUTPUT_CSV, LambdaExcessMemoryConfig.CSV_HEADERS, mode="w")
+        self.invocation_start_time = self.end_time - timedelta(days=self.CONFIG.INVOCATION_LOOKBACK_DAYS)
+        self.logs_insights_start_time = self.end_time - timedelta(days=self.CONFIG.LOGS_INSIGHTS_LOOKBACK_DAYS)
 
     # ----------------------
     # Private helpers
     # ----------------------
-    def _fetch_lambdas(self):
-        paginator = self.lambda_client.get_paginator("list_functions")
-        for page in paginator.paginate():
-            for fn in page.get("Functions", []):
-                yield {
-                    "name": fn["FunctionName"],
-                    "memory": fn["MemorySize"],
-                }
-
     def _get_invocations(self, function_name: str) -> int:
         resp = self.cw.get_metric_statistics(
             Namespace="AWS/Lambda",
@@ -87,58 +76,45 @@ class LambdaExcessMemoryPipeline:
 
         return {item["field"]: float(item["value"]) for item in result["results"][0]}
 
-    def _process_lambda(self, fn: dict):
+    # -------------------------------
+    # Required BasePipeline methods
+    # -------------------------------
+    def fetch_items(self):
+        logger.info("Fetching Lambda functions.")
+        paginator = self.lambda_client.get_paginator("list_functions")
+
+        lambdas = []
+        for page in paginator.paginate():
+            for fn in page.get("Functions", []):
+                lambdas.append(
+                    {
+                        "name": fn["FunctionName"],
+                        "memory": fn["MemorySize"],
+                    }
+                )
+
+        return lambdas
+
+    def process_item(self, fn: dict) -> bool:
         name = fn["name"]
         memory = fn["memory"]
 
-        invocations = self._get_invocations(name)
-        logs_metrics = self._get_logs_metrics(f"/aws/lambda/{name}")
-        if not logs_metrics:
-            logs_metrics = self._get_logs_metrics(f"/lambda/{name}")
-
-        avg_billed_seconds = round(logs_metrics.get("avg_billed", 0) / 1000, 2)
-        avg_memory = int(logs_metrics.get("avg_memory", 0))
-        max_memory = int(logs_metrics.get("max_memory", 0))
-
-        row = [
-            name,
-            memory,
-            invocations,
-            avg_billed_seconds,
-            avg_memory,
-            max_memory,
-        ]
-
-        utils.write_to_csv(LambdaExcessMemoryConfig.OUTPUT_CSV, row, mode="a")
-        return True
-
-    def _safe_process_lambda(self, fn):
         try:
-            return self._process_lambda(fn)
+            invocations = self._get_invocations(name)
+
+            logs_metrics = self._get_logs_metrics(f"/aws/lambda/{name}")
+            if not logs_metrics:
+                logs_metrics = self._get_logs_metrics(f"/lambda/{name}")
+
+            avg_billed_seconds = round(logs_metrics.get("avg_billed", 0) / 1000, 2)
+            avg_memory = int(logs_metrics.get("avg_memory", 0))
+            max_memory = int(logs_metrics.get("max_memory", 0))
+
+            row = [name, memory, invocations, avg_billed_seconds, avg_memory, max_memory]
+
+            utils.write_to_csv(self.CONFIG.OUTPUT_CSV, row, mode="a")
+            return True
+
         except Exception as e:
-            logger.info(f"Failed {fn['name']}: {e}")
+            logger.info(f"{self.pipeline_name}: Failed {name}: {e}.")
             return False
-
-    def _sort_csv(self):
-        df = pd.read_csv(LambdaExcessMemoryConfig.OUTPUT_CSV, encoding = "utf-8")
-        df = df.sort_values(LambdaExcessMemoryConfig.SORT_BY_COLUMN, ascending = False)
-        df.to_csv(LambdaExcessMemoryConfig.OUTPUT_CSV, index = False)
-
-    # ----------------------
-    # Main run function
-    # ----------------------
-    def run(self):
-        logger.info("Fetching Lambda functions.")
-        count = 0
-        lambdas = list(self._fetch_lambdas())
-        logger.info(f"Processing {len(lambdas)} Lambda functions.")
-
-        with ThreadPoolExecutor(max_workers=LambdaExcessMemoryConfig.MAX_WORKERS) as executor:
-            futures = [executor.submit(self._safe_process_lambda, fn) for fn in lambdas]
-            for future in as_completed(futures):
-                if future.result():
-                    count += 1
-
-        self._sort_csv()
-        logger.info(f"Finished processing the Lambdas. Failed: {len(lambdas) - count}.")
-        logger.info(f"Report written to {LambdaExcessMemoryConfig.OUTPUT_CSV}.")
