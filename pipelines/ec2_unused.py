@@ -21,6 +21,7 @@ class EC2UnusedPipeline(BasePipeline):
         self.cw = session.client("cloudwatch")
         self.pricing = utils.EC2Pricing(session)
 
+        # Time range
         self.end_time = datetime.now(timezone.utc)
         self.start_time = self.end_time - timedelta(days=self.CONFIG.LOOKBACK_DAYS)
 
@@ -43,7 +44,6 @@ class EC2UnusedPipeline(BasePipeline):
                         "Period": period_seconds,
                         "Stat": "Maximum",
                     },
-                    "ReturnData": True,
                 },
                 {
                     "Id": "netin",
@@ -56,7 +56,6 @@ class EC2UnusedPipeline(BasePipeline):
                         "Period": period_seconds,
                         "Stat": "Maximum",
                     },
-                    "ReturnData": True,
                 },
                 {
                     "Id": "netout",
@@ -69,17 +68,13 @@ class EC2UnusedPipeline(BasePipeline):
                         "Period": period_seconds,
                         "Stat": "Maximum",
                     },
-                    "ReturnData": True,
                 },
             ],
             StartTime=self.start_time,
             EndTime=self.end_time,
         )
 
-        results = {
-            r["Id"]: r.get("Values", [])
-            for r in resp.get("MetricDataResults", [])
-        }
+        results = {r["Id"]: r.get("Values", []) for r in resp.get("MetricDataResults", [])}
 
         cpu = max(results.get("cpu", []), default=0.0)
         netin = max(results.get("netin", []), default=0.0)
@@ -99,7 +94,7 @@ class EC2UnusedPipeline(BasePipeline):
             for reservation in page.get("Reservations", []):
                 for instance in reservation.get("Instances", []):
                     state = instance.get("State", {}).get("Name")
-                    if state == "terminated":
+                    if state in {"terminated", "shutting-down", "stopping", "stopped"}:
                         continue
 
                     instances.append(instance)
@@ -109,6 +104,12 @@ class EC2UnusedPipeline(BasePipeline):
     def process_item(self, instance: dict) -> bool:
         instance_id = instance["InstanceId"]
         state = instance["State"]["Name"].upper()
+        launch_time = instance["LaunchTime"]
+
+        # Skip instances newer than lookback window (+1 day buffer)
+        min_age = timedelta(days=self.CONFIG.LOOKBACK_DAYS + 1)
+        if self.end_time - launch_time < min_age:
+            return False
 
         name = next((t["Value"] for t in instance.get("Tags", []) if t["Key"] == "Name"), "")
         lifecycle = instance.get("InstanceLifecycle", "on-demand")
@@ -127,16 +128,11 @@ class EC2UnusedPipeline(BasePipeline):
                 return False
 
         status = "IDLE" if state == "RUNNING" else state
+        created_at = launch_time.strftime("%Y-%m-%d %H:%M:%S")
 
         hourly_price = 0.0
         if status == "IDLE":
             hourly_price = self.pricing.get_hourly_price(instance)
-
-        volumes = self.ec2.describe_volumes(Filters=[{"Name": "attachment.instance-id", "Values": [instance_id]}]).get("Volumes", [])
-        volume_size_gb = sum(v["Size"] for v in volumes)
-
-        addresses = self.ec2.describe_addresses(Filters=[{"Name": "instance-id", "Values": [instance_id]}]).get("Addresses", [])
-        eip_count = len(addresses)
 
         row = [
             instance_id,
@@ -144,13 +140,11 @@ class EC2UnusedPipeline(BasePipeline):
             instance_type,
             lifecycle,
             status,
-            round(hourly_price, 4),
-            len(volumes),
-            round(volume_size_gb, 2),
-            eip_count,
+            created_at,
             round(max_cpu, 2),
             round(max_net_in / (1024 * 1024), 2),
             round(max_net_out / (1024 * 1024), 2),
+            round(hourly_price, 4),
         ]
 
         utils.write_to_csv(self.CONFIG.OUTPUT_CSV, row, mode="a")

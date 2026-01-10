@@ -100,8 +100,8 @@ class EBSUnusedPipeline(BasePipeline):
         tags = volume.get("Tags", [])
         volume_id = volume["VolumeId"]
 
-        if self._is_kubernetes_volume(tags):
-            return False
+        # if self._is_kubernetes_volume(tags):
+        #     return False
 
         if self._is_protected_volume(tags):
             return False

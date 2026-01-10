@@ -23,7 +23,7 @@ class CommonConfig:
 # EBS Unused
 # -------------------------------------------
 class EBSUnusedConfig(CommonConfig):
-    LOOKBACK_DAYS = 14
+    LOOKBACK_DAYS = 32
     SORT_ASCENDING = False
     SORT_BY_COLUMN = "Size (GB)"
     WORKSHEET_NAME = "EBS - Unused"
@@ -40,7 +40,7 @@ class EC2UnusedConfig(CommonConfig):
     WORKSHEET_NAME = "EC2 - Unused"
     SORT_BY_COLUMN = "Status"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_unused.csv"
-    CSV_HEADERS = ["Instance ID", "Name", "Type", "Lifecycle", "Status", "EC2 Hourly Cost ($)", "Volumes Attached", "Volume Size (GB)", "EIPs Attached", "Max CPU (%)", "Max NetIn (MB)", "Max NetOut (MB)"]
+    CSV_HEADERS = ["Instance ID", "Name", "Type", "Lifecycle", "Status", "Created At", "Max CPU (%)", "Max NetIn (MB)", "Max NetOut (MB)", "EC2 Hourly Cost ($)"]
 
 # -------------------------------------------
 # EIP Unused
