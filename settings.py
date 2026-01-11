@@ -105,3 +105,14 @@ class NATUnusedConfig(CommonConfig):
     SORT_BY_COLUMN = "Created Time"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "nat_unused.csv"
     CSV_HEADERS = ["NAT Gateway ID", "Vpc ID", "State", "Subnet ID", "Created Time"]
+
+# -------------------------------------------
+# DynamoDB Unused
+# -------------------------------------------
+class DynamoDBUnusedConfig(CommonConfig):
+    LOOKBACK_DAYS = 14
+    SORT_ASCENDING = False
+    SORT_BY_COLUMN = "Stored Size (GB)"
+    WORKSHEET_NAME = "DynamoDB - Unused"
+    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "dynamodb_unused.csv"
+    CSV_HEADERS = ["Table Name", "Billing Mode", "Stored Items", "Stored Size (GB)", "Provisioned Read Units", "Provisioned Write Units", "Consumed Read Units", "Consumed Write Units", "Created At", "Table Status", "GSI Count"]
