@@ -7,3 +7,4 @@ from pipelines.dynamo_unused import DynamoDBUnusedPipeline
 from pipelines.logs_never_expire import LogsNeverExpirePipeline
 from pipelines.logs_high_ingestion import LogsHighIngestionPipeline
 from pipelines.lambda_excess_memory import LambdaExcessMemoryPipeline
+from pipelines.kinesis_excess_shards import KinesisExcessShardsPipeline

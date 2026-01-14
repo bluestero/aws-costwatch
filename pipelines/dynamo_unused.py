@@ -66,20 +66,17 @@ class DynamoDBUnusedPipeline(BasePipeline):
         return sum(dp.get("Average", 0) for dp in datapoints) / len(datapoints)
 
     def _get_storage_and_item_counts(self, table_desc: dict) -> tuple[int, float]:
-        """
-        Returns total_item_count, total_size_gb including GSIs.
-        """
         table_items = table_desc.get("ItemCount", 0)
-        table_size_gb = table_desc.get("TableSizeBytes", 0) / 1_000_000_000
+        table_size_gb = table_desc.get("TableSizeBytes", 0) / (1024 * 1024 * 1024)
 
         gsi_items = 0
         gsi_size_gb = 0.0
 
         for gsi in table_desc.get("GlobalSecondaryIndexes", []):
             gsi_items += gsi.get("ItemCount", 0)
-            gsi_size_gb += gsi.get("IndexSizeBytes", 0) / 1_000_000_000
+            gsi_size_gb += gsi.get("IndexSizeBytes", 0) / (1024 * 1024 * 1024)
 
-        return (table_items + gsi_items, round(table_size_gb + gsi_size_gb, 2))
+        return (table_items, gsi_items, table_size_gb, gsi_size_gb)
 
     def _get_gsi_list(self, table_desc: dict) -> list[dict]:
         return table_desc.get("GlobalSecondaryIndexes", [])
@@ -109,6 +106,17 @@ class DynamoDBUnusedPipeline(BasePipeline):
 
         return total_read, total_write
 
+    def _is_pitr_enabled(self, table_name: str) -> bool:
+        resp = self.ddb.describe_continuous_backups(TableName=table_name)
+
+        status = (
+            resp.get("ContinuousBackupsDescription", {})
+            .get("PointInTimeRecoveryDescription", {})
+            .get("PointInTimeRecoveryStatus")
+        )
+
+        return status == "ENABLED"
+
     # -------------------------------
     # Required BasePipeline methods
     # -------------------------------
@@ -126,19 +134,19 @@ class DynamoDBUnusedPipeline(BasePipeline):
         desc = self.ddb.describe_table(TableName=table_name)["Table"]
 
         table_status = desc["TableStatus"]
-        creation_time = desc["CreationDateTime"]
+        created_at = desc["CreationDateTime"]
 
         min_age = timedelta(days=self.CONFIG.LOOKBACK_DAYS + 1)
-        if self.end_time - creation_time < min_age:
+        if self.end_time - created_at < min_age:
             return False
 
         billing_mode = desc.get("BillingModeSummary", {}).get("BillingMode", "PROVISIONED")
-        pitr_enabled = (desc.get("PointInTimeRecoveryDescription", {}).get("PointInTimeRecoveryStatus") == "ENABLED")
+        pitr_enabled = self._is_pitr_enabled(table_name)
 
         gsi_list = self._get_gsi_list(desc)
         gsi_count = len(gsi_list)
 
-        total_items, total_size_gb = self._get_storage_and_item_counts(desc)
+        table_items, gsi_items, table_size_gb, gsi_size_gb = self._get_storage_and_item_counts(desc)
 
         provisioned_rcu = provisioned_wcu = 0.0
         total_read_units = total_write_units = 0.0
@@ -152,13 +160,15 @@ class DynamoDBUnusedPipeline(BasePipeline):
         row = [
             table_name,
             billing_mode,
-            total_items,
-            total_size_gb,
+            round(table_items, 2),
+            round(table_size_gb, 2),
+            round(gsi_items, 2),
+            round(gsi_size_gb, 2),
             round(provisioned_rcu, 2),
             round(provisioned_wcu, 2),
             round(total_read_units, 2),
             round(total_write_units, 2),
-            creation_time.strftime("%Y-%m-%d %H:%M:%S"),
+            created_at.strftime("%Y-%m-%d %H:%M:%S"),
             table_status,
             gsi_count,
             "YES" if pitr_enabled else "NO",

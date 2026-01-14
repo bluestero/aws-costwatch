@@ -40,7 +40,10 @@ class EC2UnusedConfig(CommonConfig):
     WORKSHEET_NAME = "EC2 - Unused"
     SORT_BY_COLUMN = "Status"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "ec2_unused.csv"
-    CSV_HEADERS = ["Instance ID", "Name", "Type", "Lifecycle", "Status", "Created At", "Max CPU (%)", "Max NetIn (MB)", "Max NetOut (MB)", "EC2 Hourly Cost ($)"]
+    CSV_HEADERS = [
+        "Instance ID", "Name", "Type", "Lifecycle", "Status", "Created At", "Max CPU (%)", "Max NetIn (MB)",
+        "Max NetOut (MB)", "EC2 Hourly Cost ($)"
+    ]
 
 # -------------------------------------------
 # EIP Unused
@@ -94,7 +97,10 @@ class SnapshotOldConfig(CommonConfig):
     WORKSHEET_NAME = "Snapshot - Old"
     SNAPSHOT_CUTOFF_DATE = "2024-05-01"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "snapshot_old.csv"
-    CSV_HEADERS = ["Snapshot ID", "Volume ID", "Volume Name", "Volume Type", "Attached Instance ID", "Attached Instance Name", "Size (GB)", "Snapshot Date"]
+    CSV_HEADERS = [
+        "Snapshot ID", "Volume ID", "Volume Name", "Volume Type", "Attached Instance ID",
+        "Attached Instance Name", "Size (GB)", "Snapshot Date"
+    ]
 
 # -------------------------------------------
 # NAT Gateway Unused
@@ -112,7 +118,26 @@ class NATUnusedConfig(CommonConfig):
 class DynamoDBUnusedConfig(CommonConfig):
     LOOKBACK_DAYS = 14
     SORT_ASCENDING = False
-    SORT_BY_COLUMN = "Stored Size (GB)"
+    SORT_BY_COLUMN = "Table Size (GB)"
     WORKSHEET_NAME = "DynamoDB - Unused"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "dynamodb_unused.csv"
-    CSV_HEADERS = ["Table Name", "Billing Mode", "Stored Items", "Stored Size (GB)", "Provisioned Read Units", "Provisioned Write Units", "Consumed Read Units", "Consumed Write Units", "Created At", "Table Status", "GSI Count"]
+    CSV_HEADERS = [
+        "Table Name", "Capacity Mode", "Table Items", "Table Size (GB)", "Index Items", "Index Size (GB)",
+        "Provisioned Read Units", "Provisioned Write Units", "Consumed Read Units", "Consumed Write Units",
+        "Created At", "Table Status", "GSI Count", "PITR Enabled"
+    ]
+
+# -------------------------------------------
+# Kinesis Excess Shards
+# -------------------------------------------
+class KinesisExcessShardsConfig(CommonConfig):
+    LOOKBACK_DAYS = 30
+    SORT_ASCENDING = False
+    SORT_BY_COLUMN = "Shard Count"
+    WORKSHEET_NAME = "Kinesis - Excess Shards"
+    OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "kinesis_excess_shards.csv"
+    CSV_HEADERS = [
+        "Stream Name", "Capacity", "Traffic Pattern", "Shard Count", "Retention (Hour)", "Consumers",
+        "Avg Read (MB/s)", "Avg Write (MB/s)", "Max Read (MB/s)", "Max Write (MB/s)",
+        "Total Monthly Read (GB)", "Total Monthly Write (GB)", "Max Iterator Age (seconds)"
+    ]

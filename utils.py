@@ -89,10 +89,6 @@ def col_num_to_letter(n: int) -> str:
     return result
 
 def write_df_to_sheet(worksheet_name: str, df: pd.DataFrame):
-    df.reset_index(drop=False, inplace = True)
-    if df.empty:
-        return
-
     worksheet = get_worksheet(worksheet_name)
     values = df.values.tolist()
     num_columns = len(values[0])

@@ -31,8 +31,8 @@ class BasePipeline:
     def post_process(self):
 
         # Sorting and saving the CSV.
-        df = pd.read_csv(self.CONFIG.OUTPUT_CSV, encoding = "utf-8")
-        df = df.sort_values(self.CONFIG.SORT_BY_COLUMN, ascending = self.CONFIG.SORT_ASCENDING)
+        df = pd.read_csv(self.CONFIG.OUTPUT_CSV, encoding = "utf-8", index_col = False)
+        df.sort_values(self.CONFIG.SORT_BY_COLUMN, ascending = self.CONFIG.SORT_ASCENDING, inplace = True)
 
         # Writing the DataFrame to the GSheet.
         if CommonConfig.WRITE_TO_GOOGLE_SHEET and not df.empty:
