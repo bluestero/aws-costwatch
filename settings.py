@@ -137,7 +137,7 @@ class KinesisExcessShardsConfig(CommonConfig):
     WORKSHEET_NAME = "Kinesis - Excess Shards"
     OUTPUT_CSV = CommonConfig.OUTPUT_CSV_DIR / "kinesis_excess_shards.csv"
     CSV_HEADERS = [
-        "Stream Name", "Capacity", "Traffic Pattern", "Shard Count", "Retention (Hour)", "Consumers",
+        "Stream Name", "Capacity", "Traffic Pattern", "Shard Count", "Retention (Hour)",
         "Avg Read (MB/s)", "Avg Write (MB/s)", "Max Read (MB/s)", "Max Write (MB/s)",
         "Total Monthly Read (GB)", "Total Monthly Write (GB)", "Max Iterator Age (seconds)"
     ]

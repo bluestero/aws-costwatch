@@ -4,15 +4,15 @@ from settings import CommonConfig
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 pipelines_to_run = [
-    # pipelines.DynamoDBUnusedPipeline,
-    # pipelines.NATUnusedPipeline,
-    # pipelines.EBSUnusedPipeline,
-    # pipelines.EC2UnusedPipeline,
-    # pipelines.EIPUnusedPipeline,
-    # pipelines.LogsNeverExpirePipeline,
-    # pipelines.LogsHighIngestionPipeline,
-    # pipelines.LambdaExcessMemoryPipeline,
-    # pipelines.SnapshotOldPipeline,
+    pipelines.NATUnusedPipeline,
+    pipelines.EBSUnusedPipeline,
+    pipelines.EC2UnusedPipeline,
+    pipelines.EIPUnusedPipeline,
+    pipelines.SnapshotOldPipeline,
+    pipelines.DynamoDBUnusedPipeline,
+    pipelines.LogsNeverExpirePipeline,
+    pipelines.LogsHighIngestionPipeline,
+    pipelines.LambdaExcessMemoryPipeline,
     pipelines.KinesisExcessShardsPipeline,
 ]
 

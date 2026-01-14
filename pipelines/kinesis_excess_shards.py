@@ -52,13 +52,6 @@ class KinesisExcessShardsPipeline(BasePipeline):
             return 0
         return int(summary.get("OpenShardCount", 0))
 
-    def _get_consumer_count(self, stream_arn: str) -> int:
-        paginator = self.kinesis.get_paginator("list_stream_consumers")
-        count = 0
-        for page in paginator.paginate(StreamARN=stream_arn):
-            count += len(page.get("Consumers", []))
-        return count
-
     def _get_stream_level_metric_series(self, stream_name: str) -> dict[str, list[float]]:
         """
         Monthly lookback, 12-hour datapoints.
@@ -82,11 +75,11 @@ class KinesisExcessShardsPipeline(BasePipeline):
                     "ReturnData": True,
                 },
                 {
-                    "Id": "outgoing",
+                    "Id": "read_bytes",
                     "MetricStat": {
                         "Metric": {
                             "Namespace": "AWS/Kinesis",
-                            "MetricName": "OutgoingBytes",
+                            "MetricName": "GetRecords.Bytes",
                             "Dimensions": [{"Name": "StreamName", "Value": stream_name}],
                         },
                         "Period": self.period_seconds,
@@ -116,7 +109,7 @@ class KinesisExcessShardsPipeline(BasePipeline):
         results = {r["Id"]: r.get("Values", []) for r in resp.get("MetricDataResults", [])}
         return {
             "incoming_bytes": results.get("incoming", []),
-            "outgoing_bytes": results.get("outgoing", []),
+            "read_bytes": results.get("read_bytes", []),
             "iterator_age_ms": results.get("iterator_age", []),
         }
 
@@ -176,25 +169,20 @@ class KinesisExcessShardsPipeline(BasePipeline):
         mode = self._get_stream_mode(summary)
         retention_hours = self._get_retention_hours(summary)
         shard_count = self._get_provisioned_open_shard_count(summary, mode)
-
-        stream_arn = summary.get("StreamARN", "")
-        consumer_count = self._get_consumer_count(stream_arn) if stream_arn else 0
-
         metric_series = self._get_stream_level_metric_series(stream_name)
 
-        # Read = outgoing, Write = incoming
         incoming_bytes = metric_series["incoming_bytes"]
-        outgoing_bytes = metric_series["outgoing_bytes"]
+        read_bytes = metric_series["read_bytes"]
         iterator_age_ms = metric_series["iterator_age_ms"]
 
         avg_write_mbps = self._bytes_to_avg_mb_per_sec(incoming_bytes)
-        avg_read_mbps = self._bytes_to_avg_mb_per_sec(outgoing_bytes)
+        avg_read_mbps = self._bytes_to_avg_mb_per_sec(read_bytes)
 
         max_write_mbps = self._bytes_to_max_mb_per_sec(incoming_bytes)
-        max_read_mbps = self._bytes_to_max_mb_per_sec(outgoing_bytes)
+        max_read_mbps = self._bytes_to_max_mb_per_sec(read_bytes)
 
         total_monthly_write_gb = self._bytes_to_total_gb(incoming_bytes)
-        total_monthly_read_gb = self._bytes_to_total_gb(outgoing_bytes)
+        total_monthly_read_gb = self._bytes_to_total_gb(read_bytes)
 
         max_iterator_age_sec = self._max_iterator_age_seconds(iterator_age_ms)
 
@@ -211,7 +199,6 @@ class KinesisExcessShardsPipeline(BasePipeline):
             traffic_pattern,
             shard_count,
             retention_hours,
-            consumer_count,
             round(avg_read_mbps, 4),
             round(avg_write_mbps, 4),
             round(max_read_mbps, 4),
