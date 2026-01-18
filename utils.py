@@ -164,16 +164,18 @@ class EC2Pricing:
         # On-Demand access test (pricing:GetProducts).
         try:
             self.pricing.get_products(ServiceCode="AmazonEC2", MaxResults=1)
+            logging.debug("Have valid On-Demand pricing access.")
         except ClientError as exception:
             self.has_on_demand_access = False
-            logger.exception(f"Had trouble validating on-demand pricing access: ({exception}).\n Price default to 0.")
+            logger.error(f"Had trouble validating on-demand pricing access: ({exception}).\n Price default to 0.")
 
-        # On-Demand access test (ec2:DescribeSpotPriceHistory).
+        # Spot access test (ec2:DescribeSpotPriceHistory).
         try:
             self.ec2.describe_spot_price_history(MaxResults=1)
+            logging.debug("Have valid Spot pricing access.")
         except ClientError as exception:
             self.has_spot_access = False
-            logger.exception(f"Had trouble validating spot pricing access: ({exception}).\n Price default to 0.")
+            logger.error(f"Had trouble validating spot pricing access: ({exception}).\n Price default to 0.")
 
     def _get_on_demand_price(self, instance_type: str, region: str, os: str, has_license: bool) -> float:
         location = self.REGION_NAME_MAP.get(region)
