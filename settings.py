@@ -16,7 +16,7 @@ class CommonConfig:
 
     # Google Sheet
     WRITE_TO_GOOGLE_SHEET = True
-    SPREADSHEET_NAME = "AWS Cost Watch - Onclusive Management"
+    SPREADSHEET_NAME = "AWS Cost Watch - Platform Dev"
     GCC_JSON_PATH = MAIN_DIR / "google-sheet-creds.json"
 
 # -------------------------------------------

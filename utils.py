@@ -6,6 +6,7 @@ import configparser
 import pandas as pd
 from pathlib import Path
 from datetime import datetime, timedelta
+from botocore.exceptions import ClientError
 from google.oauth2.service_account import Credentials
 
 # -------------------------------------------
@@ -119,11 +120,15 @@ class EC2Pricing:
         self.pricing = session.client("pricing", region_name="us-east-1")
         self.ec2 = session.client("ec2")
 
+        # Access flags (default True, validated once)
+        self.has_on_demand_access = True
+        self.has_spot_access = True
+
         # Cache: (instance_type, region, os, lifecycle) -> hourly_price
         self._cache = {}
 
     # ----------------------
-    # Public API
+    # Main price fetch function
     # ----------------------
     def get_hourly_price(self, instance: dict) -> float:
         instance_type = instance["InstanceType"]
@@ -140,11 +145,13 @@ class EC2Pricing:
         if cache_key in self._cache:
             return self._cache[cache_key]
 
-        if lifecycle == "spot":
+        if lifecycle == "spot" and self.has_spot_access:
             price = self._get_spot_price(instance_type, operating_system)
-        else:
+        elif lifecycle != "spot" and self.has_on_demand_access:
             has_license = bool(instance.get("ProductCodes"))
             price = self._get_on_demand_price(instance_type, region, operating_system, has_license)
+        else:
+            return 0.0
 
         self._cache[cache_key] = price
         return price
@@ -152,6 +159,22 @@ class EC2Pricing:
     # ----------------------
     # Internal helpers
     # ----------------------
+    def validate_access(self) -> None:
+
+        # On-Demand access test (pricing:GetProducts).
+        try:
+            self.pricing.get_products(ServiceCode="AmazonEC2", MaxResults=1)
+        except ClientError as exception:
+            self.has_on_demand_access = False
+            logger.exception(f"Had trouble validating on-demand pricing access: ({exception}).\n Price default to 0.")
+
+        # On-Demand access test (ec2:DescribeSpotPriceHistory).
+        try:
+            self.ec2.describe_spot_price_history(MaxResults=1)
+        except ClientError as exception:
+            self.has_spot_access = False
+            logger.exception(f"Had trouble validating spot pricing access: ({exception}).\n Price default to 0.")
+
     def _get_on_demand_price(self, instance_type: str, region: str, os: str, has_license: bool) -> float:
         location = self.REGION_NAME_MAP.get(region)
         if not location:
